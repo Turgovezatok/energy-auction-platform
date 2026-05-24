@@ -64,6 +64,7 @@ export default function HomePage() {
             <h3 style={{ fontSize: 22, marginBottom: 10 }}>{title}</h3>
             <p style={{ color: "#64748b", lineHeight: 1.5 }}>{text}</p>
           </div>
+          
         ))}
       </section>
     </main>
