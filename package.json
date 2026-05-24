@@ -1,4 +1,4 @@
-{
+{{
   "name": "energy-auction-platform",
   "version": "1.0.0",
   "private": true,
@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
     "next": "14.2.5",
     "react": "^18",
     "react-dom": "^18"
