@@ -99,15 +99,26 @@ export default function BuyMarketPage() {
             </div>
 
             <div style={priceBlockStyle}>
-              <div style={priceLabelStyle}>Приема оферти</div>
+  <div style={priceLabelStyle}>Приема ценови модели</div>
 
-              <div style={priceStyle}>
-                {auction.accepts_fixed_price && "Фикс. "}
-                {auction.accepts_day_ahead_with_balancing && "DA+бал. "}
-                {auction.accepts_day_ahead_without_balancing && "Без неб. "}
-                {auction.accepts_hybrid && "Хибрид"}
-              </div>
-            </div>
+  <div style={priceTableStyle}>
+    {auction.accepts_fixed_price && (
+      <PriceRow label="Фиксирана цена" color="#1d4ed8" />
+    )}
+
+    {auction.accepts_day_ahead_with_balancing && (
+      <PriceRow label="Ден напред с балансиране" color="#047857" />
+    )}
+
+    {auction.accepts_day_ahead_without_balancing && (
+      <PriceRow label="Ден напред без балансиране" color="#b45309" />
+    )}
+
+    {auction.accepts_hybrid && (
+      <PriceRow label="Ден напред с двукомпонентна добавка" color="#6d28d9" />
+    )}
+  </div>
+</div>
 
             <footer style={footerStyle}>
               <span>Край след:</span>
@@ -138,7 +149,20 @@ function InfoRow({
     </div>
   );
 }
-
+function PriceRow({
+  label,
+  color,
+}: {
+  label: string;
+  color: string;
+}) {
+  return (
+    <div style={priceRowStyle}>
+      <span style={{ ...priceDotStyle, background: color }}></span>
+      <span>{label}</span>
+    </div>
+  );
+}
 const pageStyle: React.CSSProperties = {
   minHeight: "100vh",
   background: "#f8fafc",
@@ -289,4 +313,27 @@ const footerStyle: React.CSSProperties = {
   color: "#c2410c",
   padding: "14px 22px",
   fontSize: 14,
+};
+const priceTableStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 8,
+};
+
+const priceRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  background: "#f8fafc",
+  padding: "9px 10px",
+  borderRadius: 10,
+  fontSize: 14,
+  fontWeight: 700,
+  color: "#334155",
+};
+
+const priceDotStyle: React.CSSProperties = {
+  width: 9,
+  height: 9,
+  borderRadius: "50%",
+  flexShrink: 0,
 };
