@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
 
 type Auction = {
@@ -24,7 +25,7 @@ type Auction = {
 export default function BuyMarketPage() {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
-const [offerMessage, setOfferMessage] = useState("");
+  const [offerMessage, setOfferMessage] = useState("");
 
   useEffect(() => {
     loadAuctions();
@@ -40,54 +41,67 @@ const [offerMessage, setOfferMessage] = useState("");
     if (data) setAuctions(data);
   }
 
+  async function submitOffer(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    if (!selectedAuction) return;
+
+    const formData = new FormData(e.currentTarget);
+
+    const { error } = await supabase.from("offers").insert({
+      auction_id: selectedAuction.id,
+      pricing_model: formData.get("pricing_model"),
+      fixed_price_eur_mwh: Number(formData.get("fixed_price_eur_mwh")) || null,
+      day_ahead_adder_eur_mwh:
+        Number(formData.get("day_ahead_adder_eur_mwh")) || null,
+      hybrid_fixed_adder_eur_mwh:
+        Number(formData.get("hybrid_fixed_adder_eur_mwh")) || null,
+      hybrid_percent: Number(formData.get("hybrid_percent")) || null,
+      payment_days: Number(formData.get("payment_days")) || null,
+      offer_validity_days: Number(formData.get("offer_validity_days")) || null,
+      notes: formData.get("notes"),
+    });
+
+    if (error) {
+      setOfferMessage(error.message);
+      return;
+    }
+
+    setOfferMessage("Офертата е изпратена успешно ✅");
+  }
+
   return (
     <main style={pageStyle}>
       <header style={headerStyle}>
         <div>
           <h1 style={titleStyle}>Табло Купува</h1>
-          <p style={subtitleStyle}>
-            Активни заявки за покупка на електроенергия
-          </p>
+          <p style={subtitleStyle}>Активни заявки за покупка на електроенергия</p>
         </div>
 
-        <div style={counterStyle}>
-          📊 {auctions.length} активни търга
-        </div>
+        <div style={counterStyle}>📊 {auctions.length} активни търга</div>
       </header>
 
       <div style={tabsStyle}>
         <button style={activeTabStyle}>🛒 Купува</button>
-        <button style={tabStyle}>📈 Продава</button>
+
+        <Link href="/market/sell" style={tabLinkStyle}>
+          📈 Продава
+        </Link>
       </div>
 
       <div style={filtersStyle}>
         <button style={activeFilterStyle}>Всички</button>
-
-        <button style={filterStyle}>
-          🔵 Фиксирана цена
-        </button>
-
-        <button style={filterStyle}>
-          🟢 Ден напред с балансиране
-        </button>
-
-        <button style={filterStyle}>
-          🟠 Ден напред без балансиране
-        </button>
-
-        <button style={filterStyle}>
-          🟣 Ден напред с двукомпонентна добавка
-        </button>
+        <button style={filterStyle}>🔵 Фиксирана цена</button>
+        <button style={filterStyle}>🟢 Ден напред с балансиране</button>
+        <button style={filterStyle}>🟠 Ден напред без балансиране</button>
+        <button style={filterStyle}>🟣 Ден напред с двукомпонентна добавка</button>
       </div>
 
       <section style={gridStyle}>
         {auctions.map((auction) => (
           <article key={auction.id} style={cardStyle}>
             <div style={cardTopStyle}>
-              <span style={statusBadgeStyle}>
-                Скоро изтича
-              </span>
-
+              <span style={statusBadgeStyle}>Скоро изтича</span>
               <span style={heartStyle}>♡</span>
             </div>
 
@@ -99,9 +113,7 @@ const [offerMessage, setOfferMessage] = useState("");
                   {auction.title || "Доставка на ел. енергия"}
                 </h2>
 
-                <p style={companyStyle}>
-                  {auction.sector || "Бизнес клиент"} 🔵
-                </p>
+                <p style={companyStyle}>{auction.sector || "Бизнес клиент"} 🔵</p>
               </div>
             </div>
 
@@ -114,9 +126,7 @@ const [offerMessage, setOfferMessage] = useState("");
 
                 <InfoRow
                   label="Период"
-                  value={`${formatDate(
-                    auction.delivery_start_date
-                  )} - ${formatDate(
+                  value={`${formatDate(auction.delivery_start_date)} - ${formatDate(
                     auction.offer_deadline_date
                   )}`}
                 />
@@ -124,37 +134,24 @@ const [offerMessage, setOfferMessage] = useState("");
                 <InfoRow
                   label="Доставка"
                   value={
-                    auction.network_components_included
-                      ? "С мрежови"
-                      : "Енергия"
+                    auction.network_components_included ? "С мрежови" : "Енергия"
                   }
                 />
               </div>
 
               <div style={priceModelsStyle}>
-                <div style={priceTitleStyle}>
-                  Приема ценови модели
-                </div>
+                <div style={priceTitleStyle}>Приема ценови модели</div>
 
                 {auction.accepts_fixed_price && (
-                  <PriceRow
-                    label="Фиксирана цена"
-                    color="#2563eb"
-                  />
+                  <PriceRow label="Фиксирана цена" color="#2563eb" />
                 )}
 
                 {auction.accepts_day_ahead_with_balancing && (
-                  <PriceRow
-                    label="Ден напред с балансиране"
-                    color="#059669"
-                  />
+                  <PriceRow label="Ден напред с балансиране" color="#059669" />
                 )}
 
                 {auction.accepts_day_ahead_without_balancing && (
-                  <PriceRow
-                    label="Ден напред без балансиране"
-                    color="#ea580c"
-                  />
+                  <PriceRow label="Ден напред без балансиране" color="#ea580c" />
                 )}
 
                 {auction.accepts_hybrid && (
@@ -171,78 +168,123 @@ const [offerMessage, setOfferMessage] = useState("");
 
               <strong>03ч 45м</strong>
 
-             <button
-  style={buttonStyle}
-  onClick={() => setSelectedAuction(auction)}
->
-  Подай оферта
-</button>
+              <button
+                style={buttonStyle}
+                onClick={() => {
+                  setSelectedAuction(auction);
+                  setOfferMessage("");
+                }}
+              >
+                Подай оферта
+              </button>
             </footer>
           </article>
         ))}
       </section>
 
-{selectedAuction && (
-  <div style={modalOverlayStyle}>
-    <div style={modalStyle}>
-      <h2 style={modalTitleStyle}>
-        Подай оферта
-      </h2>
+      {selectedAuction && (
+        <div style={modalOverlayStyle}>
+          <form style={modalStyle} onSubmit={submitOffer}>
+            <h2 style={modalTitleStyle}>Подай оферта</h2>
 
-      <p style={modalSubtitleStyle}>
-        {selectedAuction.title}
-      </p>
+            <p style={modalSubtitleStyle}>{selectedAuction.title}</p>
 
-      <input
-        type="number"
-        placeholder="Фиксирана цена €/MWh"
-        style={inputStyle}
-      />
+            <label>Ценови модел</label>
+            <select name="pricing_model" required style={inputStyle}>
+              {selectedAuction.accepts_fixed_price && (
+                <option value="fixed">Фиксирана цена</option>
+              )}
 
-      <input
-        type="number"
-        placeholder="Добавка €/MWh"
-        style={inputStyle}
-      />
+              {selectedAuction.accepts_day_ahead_with_balancing && (
+                <option value="day_ahead_adder">
+                  Ден напред с балансиране
+                </option>
+              )}
 
-      <input
-        type="number"
-        placeholder="Процент %"
-        style={inputStyle}
-      />
+              {selectedAuction.accepts_day_ahead_without_balancing && (
+                <option value="day_ahead_no_balancing">
+                  Ден напред без балансиране
+                </option>
+              )}
 
-      <textarea
-        placeholder="Бележки"
-        style={textareaStyle}
-      />
+              {selectedAuction.accepts_hybrid && (
+                <option value="hybrid">
+                  Ден напред с двукомпонентна добавка
+                </option>
+              )}
+            </select>
 
-      <div style={modalButtonsStyle}>
-        <button
-          style={closeButtonStyle}
-          onClick={() => setSelectedAuction(null)}
-        >
-          Затвори
-        </button>
+            <input
+              name="fixed_price_eur_mwh"
+              type="number"
+              step="0.01"
+              placeholder="Фиксирана цена €/MWh"
+              style={inputStyle}
+            />
 
-        <button style={submitButtonStyle}>
-          Изпрати оферта
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+            <input
+              name="day_ahead_adder_eur_mwh"
+              type="number"
+              step="0.01"
+              placeholder="Добавка €/MWh"
+              style={inputStyle}
+            />
 
-</main>
+            <input
+              name="hybrid_fixed_adder_eur_mwh"
+              type="number"
+              step="0.01"
+              placeholder="Фиксирана част на добавката €/MWh"
+              style={inputStyle}
+            />
+
+            <input
+              name="hybrid_percent"
+              type="number"
+              step="0.01"
+              placeholder="Процентна добавка %"
+              style={inputStyle}
+            />
+
+            <input
+              name="payment_days"
+              type="number"
+              placeholder="Срок за плащане дни"
+              style={inputStyle}
+            />
+
+            <input
+              name="offer_validity_days"
+              type="number"
+              placeholder="Валидност на офертата дни"
+              style={inputStyle}
+            />
+
+            <textarea name="notes" placeholder="Бележки" style={textareaStyle} />
+
+            {offerMessage && <p>{offerMessage}</p>}
+
+            <div style={modalButtonsStyle}>
+              <button
+                type="button"
+                style={closeButtonStyle}
+                onClick={() => setSelectedAuction(null)}
+              >
+                Затвори
+              </button>
+
+              <button type="submit" style={submitButtonStyle}>
+                Изпрати оферта
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </main>
   );
 }
 
-function InfoRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={infoRowStyle}>
       <span>{label}</span>
@@ -251,22 +293,10 @@ function InfoRow({
   );
 }
 
-function PriceRow({
-  label,
-  color,
-}: {
-  label: string;
-  color: string;
-}) {
+function PriceRow({ label, color }: { label: string; color: string }) {
   return (
     <div style={priceRowStyle}>
-      <span
-        style={{
-          ...priceDotStyle,
-          background: color,
-        }}
-      />
-
+      <span style={{ ...priceDotStyle, background: color }} />
       <span>{label}</span>
     </div>
   );
@@ -274,7 +304,6 @@ function PriceRow({
 
 function formatDate(date: string) {
   if (!date) return "-";
-
   return new Date(date).toLocaleDateString("bg-BG");
 }
 
@@ -329,10 +358,9 @@ const activeTabStyle: React.CSSProperties = {
   fontSize: 16,
 };
 
-const tabStyle: React.CSSProperties = {
+const tabLinkStyle: React.CSSProperties = {
   padding: "12px 16px",
-  border: 0,
-  background: "transparent",
+  textDecoration: "none",
   color: "#334155",
   fontWeight: 700,
   fontSize: 16,
@@ -496,6 +524,7 @@ const buttonStyle: React.CSSProperties = {
   fontWeight: 800,
   cursor: "pointer",
 };
+
 const modalOverlayStyle: React.CSSProperties = {
   position: "fixed",
   inset: 0,
@@ -507,23 +536,26 @@ const modalOverlayStyle: React.CSSProperties = {
 };
 
 const modalStyle: React.CSSProperties = {
-  width: 500,
+  width: 520,
+  maxHeight: "88vh",
+  overflowY: "auto",
   background: "white",
-  borderRadius: 18,
+  borderRadius: 20,
   padding: 28,
   boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
+  boxSizing: "border-box",
 };
 
 const modalTitleStyle: React.CSSProperties = {
   margin: 0,
   marginBottom: 10,
-  fontSize: 28,
+  fontSize: 30,
   fontWeight: 900,
 };
 
 const modalSubtitleStyle: React.CSSProperties = {
   color: "#64748b",
-  marginBottom: 24,
+  marginBottom: 22,
 };
 
 const inputStyle: React.CSSProperties = {
@@ -533,16 +565,18 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid #cbd5e1",
   marginBottom: 14,
   fontSize: 15,
+  boxSizing: "border-box",
 };
 
 const textareaStyle: React.CSSProperties = {
   width: "100%",
-  minHeight: 120,
+  minHeight: 110,
   padding: "14px 16px",
   borderRadius: 12,
   border: "1px solid #cbd5e1",
   marginBottom: 18,
   fontSize: 15,
+  boxSizing: "border-box",
 };
 
 const modalButtonsStyle: React.CSSProperties = {
