@@ -145,12 +145,11 @@ function formatDate(date: string) {
   return new Date(date).toLocaleDateString("bg-BG");
 }
 
-const pageStyle: React.CSSProperties = {
-  minHeight: "100vh",
-  background: "#f8fafc",
-  padding: "30px 38px",
-  fontFamily: "Arial, sans-serif",
-  color: "#0f172a",
+const gridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, 480px)",
+  gap: 22,
+  alignItems: "start",
 };
 
 const headerStyle: React.CSSProperties = {
