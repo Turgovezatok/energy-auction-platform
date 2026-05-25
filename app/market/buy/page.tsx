@@ -43,106 +43,106 @@ export default function BuyMarketPage() {
       <header style={headerStyle}>
         <div>
           <h1 style={titleStyle}>Табло Купува</h1>
-          <p style={subtitleStyle}>Активни заявки за покупка на електроенергия</p>
+          <p style={subtitleStyle}>
+            Активни заявки за покупка на електроенергия
+          </p>
         </div>
 
-        <div style={counterStyle}>{auctions.length} активни търга</div>
+        <div style={counterStyle}>📊 {auctions.length} активни търга</div>
       </header>
 
-      <section style={cardsWrapStyle}>
+      <div style={topLinkStyle}>Виж всички →</div>
+
+      <section style={gridStyle}>
         {auctions.map((auction) => (
           <article key={auction.id} style={cardStyle}>
-            <div style={topRowStyle}>
-              <span style={activeBadgeStyle}>
-                <span style={dotStyle}></span>
-                АКТИВЕН
-              </span>
-
-              <span style={durationStyle}>{auction.duration_months} месеца</span>
+            <div style={cardTopStyle}>
+              <span style={statusBadgeStyle}>Скоро изтича</span>
+              <span style={heartStyle}>♡</span>
             </div>
 
-            <h2 style={auctionTitleStyle}>{auction.title}</h2>
-            <p style={sectorStyle}>{auction.sector || "Без сектор"}</p>
+            <div style={mainRowStyle}>
+              <div style={iconBoxStyle}>🛒</div>
 
-            <div style={metricGridStyle}>
-              <Metric icon="📈" label="Консумация" value={`${auction.annual_consumption_mwh || 0} MWh`} />
-              <Metric icon="📅" label="Начало доставка" value={auction.delivery_start_date || "-"} />
-              <Metric icon="⏳" label="Оферти до" value={auction.offer_deadline_date || "-"} />
-              <Metric icon="💳" label="Плащане" value={`${auction.preferred_payment_days || "-"} дни`} />
+              <div>
+                <h2 style={cardTitleStyle}>
+                  {auction.title || "Доставка на ел. енергия"}
+                </h2>
+
+                <p style={companyStyle}>
+                  {auction.sector || "Бизнес клиент"} 🔵
+                </p>
+              </div>
             </div>
 
-            <div style={tagWrapStyle}>
-              {auction.accepts_fixed_price && <Tag icon="🏷️" text="Фиксирана цена" bg="#dbeafe" color="#1e40af" />}
-              {auction.accepts_day_ahead_with_balancing && <Tag icon="⚡" text="DA + балансиране" bg="#dcfce7" color="#166534" />}
-              {auction.accepts_day_ahead_without_balancing && <Tag icon="⚖️" text="Без небаланс" bg="#fef3c7" color="#92400e" />}
-              {auction.accepts_hybrid && <Tag icon="🔗" text="Хибриден модел" bg="#ede9fe" color="#5b21b6" />}
-              {auction.has_pv && <Tag icon="☀️" text="Prosumer / ФЕЦ" bg="#fce7f3" color="#9d174d" />}
-              {auction.network_components_included && <Tag icon="▦" text="С мрежови" bg="#e0f2fe" color="#075985" />}
+            <div style={detailsStyle}>
+              <InfoRow
+                label="Количество"
+                value={`${auction.annual_consumption_mwh || 0} MWh`}
+              />
+
+              <InfoRow
+                label="Период"
+                value={`${auction.delivery_start_date || "-"} - ${
+                  auction.offer_deadline_date || "-"
+                }`}
+              />
+
+              <InfoRow
+                label="Доставка"
+                value={
+                  auction.network_components_included
+                    ? "С мрежови"
+                    : "Енергия"
+                }
+              />
             </div>
 
-            <div style={dividerStyle}></div>
+            <div style={priceBlockStyle}>
+              <div style={priceLabelStyle}>Приема оферти</div>
+
+              <div style={priceStyle}>
+                {auction.accepts_fixed_price && "Фикс. "}
+                {auction.accepts_day_ahead_with_balancing && "DA+бал. "}
+                {auction.accepts_day_ahead_without_balancing && "Без неб. "}
+                {auction.accepts_hybrid && "Хибрид"}
+              </div>
+            </div>
 
             <footer style={footerStyle}>
-              <div style={contractWrapStyle}>
-                <div style={contractIconStyle}>📄</div>
-                <div>
-                  <div style={smallLabelStyle}>Тип договор</div>
-                  <strong>{auction.contract_type === "closed" ? "Затворен" : "Отворен"}</strong>
-                </div>
-              </div>
-
-              <button style={buttonStyle}>Подай оферта →</button>
+              <span>Край след:</span>
+              <strong>{auction.duration_months} м.</strong>
             </footer>
           </article>
         ))}
       </section>
+
+      {auctions.length === 0 && (
+        <p style={{ color: "#64748b" }}>Няма активни търгове.</p>
+      )}
     </main>
   );
 }
 
-function Metric({
-  icon,
+function InfoRow({
   label,
   value,
 }: {
-  icon: string;
   label: string;
   value: string;
 }) {
   return (
-    <div style={metricStyle}>
-      <div style={metricIconStyle}>{icon}</div>
-      <div>
-        <div style={smallLabelStyle}>{label}</div>
-        <strong>{value}</strong>
-      </div>
+    <div style={infoRowStyle}>
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
-  );
-}
-
-function Tag({
-  icon,
-  text,
-  bg,
-  color,
-}: {
-  icon: string;
-  text: string;
-  bg: string;
-  color: string;
-}) {
-  return (
-    <span style={{ ...tagStyle, background: bg, color }}>
-      <span>{icon}</span>
-      {text}
-    </span>
   );
 }
 
 const pageStyle: React.CSSProperties = {
   minHeight: "100vh",
-  background: "#f1f5f9",
-  padding: 40,
+  background: "#f8fafc",
+  padding: "34px 42px",
   fontFamily: "Arial, sans-serif",
   color: "#0f172a",
 };
@@ -151,166 +151,141 @@ const headerStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  marginBottom: 34,
+  marginBottom: 24,
 };
 
 const titleStyle: React.CSSProperties = {
-  fontSize: 46,
   margin: 0,
+  fontSize: 38,
+  fontWeight: 800,
 };
 
 const subtitleStyle: React.CSSProperties = {
   color: "#64748b",
-  fontSize: 20,
+  fontSize: 17,
+  marginTop: 8,
 };
 
 const counterStyle: React.CSSProperties = {
   background: "white",
-  padding: "16px 24px",
-  borderRadius: 18,
+  padding: "14px 22px",
+  borderRadius: 16,
   fontWeight: 800,
-  boxShadow: "0 12px 35px rgba(15,23,42,0.06)",
+  boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
 };
 
-const cardsWrapStyle: React.CSSProperties = {
+const topLinkStyle: React.CSSProperties = {
+  textAlign: "right",
+  color: "#2563eb",
+  fontWeight: 800,
+  marginBottom: 18,
+};
+
+const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(520px, 1fr))",
-  gap: 28,
+  gridTemplateColumns: "repeat(auto-fit, minmax(330px, 1fr))",
+  gap: 22,
 };
 
 const cardStyle: React.CSSProperties = {
   background: "white",
-  borderRadius: 28,
-  padding: 32,
-  boxShadow: "0 18px 55px rgba(15,23,42,0.09)",
-  border: "1px solid #e2e8f0",
+  borderRadius: 18,
+  overflow: "hidden",
+  boxShadow: "0 14px 38px rgba(15,23,42,0.08)",
+  border: "1px solid #e5e7eb",
 };
 
-const topRowStyle: React.CSSProperties = {
+const cardTopStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  marginBottom: 26,
+  padding: "20px 22px 8px",
 };
 
-const activeBadgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 8,
-  background: "#dcfce7",
-  color: "#166534",
-  padding: "9px 14px",
+const statusBadgeStyle: React.CSSProperties = {
+  background: "#ffedd5",
+  color: "#c2410c",
+  padding: "6px 12px",
   borderRadius: 999,
-  fontSize: 14,
+  fontSize: 13,
   fontWeight: 800,
 };
 
-const dotStyle: React.CSSProperties = {
-  width: 10,
-  height: 10,
-  background: "#16a34a",
-  borderRadius: "50%",
-};
-
-const durationStyle: React.CSSProperties = {
+const heartStyle: React.CSSProperties = {
+  fontSize: 28,
   color: "#64748b",
-  fontSize: 17,
 };
 
-const auctionTitleStyle: React.CSSProperties = {
-  fontSize: 30,
-  margin: "0 0 12px",
-};
-
-const sectorStyle: React.CSSProperties = {
-  color: "#64748b",
-  fontSize: 22,
-  marginBottom: 30,
-};
-
-const metricGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(4, 1fr)",
-  gap: 18,
-  marginBottom: 30,
-};
-
-const metricStyle: React.CSSProperties = {
+const mainRowStyle: React.CSSProperties = {
   display: "flex",
-  alignItems: "center",
-  gap: 14,
-  background: "#f8fafc",
-  borderRadius: 22,
-  padding: 18,
+  gap: 16,
+  padding: "14px 22px 18px",
+  alignItems: "flex-start",
 };
 
-const metricIconStyle: React.CSSProperties = {
-  width: 42,
-  height: 42,
-  borderRadius: 14,
-  background: "white",
+const iconBoxStyle: React.CSSProperties = {
+  width: 58,
+  height: 58,
+  borderRadius: 18,
+  background: "#e0e7ff",
+  color: "#1e3a8a",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  fontSize: 28,
+  flexShrink: 0,
 };
 
-const tagWrapStyle: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 14,
-  marginBottom: 30,
-};
-
-const tagStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "12px 16px",
-  borderRadius: 16,
+const cardTitleStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 18,
+  lineHeight: 1.35,
   fontWeight: 800,
 };
 
-const dividerStyle: React.CSSProperties = {
-  height: 1,
-  background: "#e2e8f0",
-  marginBottom: 26,
+const companyStyle: React.CSSProperties = {
+  color: "#0f172a",
+  marginTop: 8,
+  fontSize: 14,
+  fontWeight: 600,
+};
+
+const detailsStyle: React.CSSProperties = {
+  padding: "8px 22px 0",
+};
+
+const infoRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "7px 0",
+  color: "#475569",
+  fontSize: 14,
+};
+
+const priceBlockStyle: React.CSSProperties = {
+  borderTop: "1px solid #e5e7eb",
+  marginTop: 12,
+  padding: "16px 22px",
+};
+
+const priceLabelStyle: React.CSSProperties = {
+  color: "#64748b",
+  fontSize: 14,
+  marginBottom: 8,
+};
+
+const priceStyle: React.CSSProperties = {
+  color: "#059669",
+  fontSize: 21,
+  fontWeight: 900,
 };
 
 const footerStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "center",
-};
-
-const contractWrapStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 14,
-};
-
-const contractIconStyle: React.CSSProperties = {
-  width: 46,
-  height: 46,
-  borderRadius: 16,
-  background: "#e0f2fe",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const smallLabelStyle: React.CSSProperties = {
-  color: "#64748b",
+  background: "#fff7ed",
+  color: "#c2410c",
+  padding: "14px 22px",
   fontSize: 14,
-  marginBottom: 4,
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: "18px 28px",
-  border: 0,
-  borderRadius: 18,
-  background: "#059669",
-  color: "white",
-  fontWeight: 800,
-  fontSize: 18,
-  cursor: "pointer",
 };
