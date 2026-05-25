@@ -43,9 +43,14 @@ export default function BuyMarketPage() {
       <header style={headerStyle}>
         <div>
           <h1 style={titleStyle}>Табло Купува</h1>
-          <p style={subtitleStyle}>Активни заявки за покупка на електроенергия</p>
+          <p style={subtitleStyle}>
+            Активни заявки за покупка на електроенергия
+          </p>
         </div>
-        <div style={counterStyle}>📊 {auctions.length} активни търга</div>
+
+        <div style={counterStyle}>
+          📊 {auctions.length} активни търга
+        </div>
       </header>
 
       <div style={tabsStyle}>
@@ -55,65 +60,118 @@ export default function BuyMarketPage() {
 
       <div style={filtersStyle}>
         <button style={activeFilterStyle}>Всички</button>
-        <button style={filterStyle}>🔵 Фиксирана цена</button>
-        <button style={filterStyle}>🟢 Ден напред с балансиране</button>
-        <button style={filterStyle}>🟠 Ден напред без балансиране</button>
-        <button style={filterStyle}>🟣 Ден напред с двукомпонентна добавка</button>
+
+        <button style={filterStyle}>
+          🔵 Фиксирана цена
+        </button>
+
+        <button style={filterStyle}>
+          🟢 Ден напред с балансиране
+        </button>
+
+        <button style={filterStyle}>
+          🟠 Ден напред без балансиране
+        </button>
+
+        <button style={filterStyle}>
+          🟣 Ден напред с двукомпонентна добавка
+        </button>
       </div>
 
       <section style={gridStyle}>
         {auctions.map((auction) => (
           <article key={auction.id} style={cardStyle}>
             <div style={cardTopStyle}>
-              <span style={statusBadgeStyle}>Скоро изтича</span>
+              <span style={statusBadgeStyle}>
+                Скоро изтича
+              </span>
+
               <span style={heartStyle}>♡</span>
             </div>
 
             <div style={mainRowStyle}>
               <div style={iconBoxStyle}>🛒</div>
+
               <div>
                 <h2 style={cardTitleStyle}>
-                  {auction.title || "Доставка на ел. енергия за търговски обект"}
+                  {auction.title || "Доставка на ел. енергия"}
                 </h2>
-                <p style={companyStyle}>{auction.sector || "Бизнес клиент"} 🔵</p>
+
+                <p style={companyStyle}>
+                  {auction.sector || "Бизнес клиент"} 🔵
+                </p>
               </div>
             </div>
 
             <div style={middleGridStyle}>
               <div>
-                <InfoRow label="Количество" value={`${auction.annual_consumption_mwh || 0} MWh`} />
+                <InfoRow
+                  label="Количество"
+                  value={`${auction.annual_consumption_mwh || 0} MWh`}
+                />
+
                 <InfoRow
                   label="Период"
-                  value={`${formatDate(auction.delivery_start_date)} - ${formatDate(auction.offer_deadline_date)}`}
+                  value={`${formatDate(
+                    auction.delivery_start_date
+                  )} - ${formatDate(
+                    auction.offer_deadline_date
+                  )}`}
                 />
+
                 <InfoRow
                   label="Доставка"
-                  value={auction.network_components_included ? "С мрежови" : "Енергия"}
+                  value={
+                    auction.network_components_included
+                      ? "С мрежови"
+                      : "Енергия"
+                  }
                 />
               </div>
 
               <div style={priceModelsStyle}>
-                <div style={priceTitleStyle}>Приема ценови модели</div>
+                <div style={priceTitleStyle}>
+                  Приема ценови модели
+                </div>
 
                 {auction.accepts_fixed_price && (
-                  <PriceRow label="Фиксирана цена" color="#2563eb" />
+                  <PriceRow
+                    label="Фиксирана цена"
+                    color="#2563eb"
+                  />
                 )}
+
                 {auction.accepts_day_ahead_with_balancing && (
-                  <PriceRow label="Ден напред с балансиране" color="#059669" />
+                  <PriceRow
+                    label="Ден напред с балансиране"
+                    color="#059669"
+                  />
                 )}
+
                 {auction.accepts_day_ahead_without_balancing && (
-                  <PriceRow label="Ден напред без балансиране" color="#ea580c" />
+                  <PriceRow
+                    label="Ден напред без балансиране"
+                    color="#ea580c"
+                  />
                 )}
+
                 {auction.accepts_hybrid && (
-                  <PriceRow label="Ден напред с двукомпонентна добавка" color="#7c3aed" />
+                  <PriceRow
+                    label="Ден напред с двукомпонентна добавка"
+                    color="#7c3aed"
+                  />
                 )}
               </div>
             </div>
 
             <footer style={footerStyle}>
               <span>Край след:</span>
+
               <strong>03ч 45м</strong>
-              <button style={buttonStyle}>Подай оферта</button>
+
+              <button style={buttonStyle}>
+                Подай оферта
+              </button>
             </footer>
           </article>
         ))}
@@ -122,7 +180,13 @@ export default function BuyMarketPage() {
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
     <div style={infoRowStyle}>
       <span>{label}</span>
@@ -131,10 +195,22 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PriceRow({ label, color }: { label: string; color: string }) {
+function PriceRow({
+  label,
+  color,
+}: {
+  label: string;
+  color: string;
+}) {
   return (
     <div style={priceRowStyle}>
-      <span style={{ ...priceDotStyle, background: color }} />
+      <span
+        style={{
+          ...priceDotStyle,
+          background: color,
+        }}
+      />
+
       <span>{label}</span>
     </div>
   );
@@ -142,14 +218,16 @@ function PriceRow({ label, color }: { label: string; color: string }) {
 
 function formatDate(date: string) {
   if (!date) return "-";
+
   return new Date(date).toLocaleDateString("bg-BG");
 }
 
-const gridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, 480px)",
-  gap: 22,
-  alignItems: "start",
+const pageStyle: React.CSSProperties = {
+  minHeight: "100vh",
+  background: "#f8fafc",
+  padding: "30px 38px",
+  fontFamily: "Arial, sans-serif",
+  color: "#0f172a",
 };
 
 const headerStyle: React.CSSProperties = {
@@ -161,13 +239,13 @@ const headerStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 40,
+  fontSize: 42,
   fontWeight: 900,
 };
 
 const subtitleStyle: React.CSSProperties = {
   color: "#64748b",
-  fontSize: 17,
+  fontSize: 18,
 };
 
 const counterStyle: React.CSSProperties = {
@@ -208,7 +286,7 @@ const filtersStyle: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: 12,
-  marginBottom: 24,
+  marginBottom: 28,
 };
 
 const activeFilterStyle: React.CSSProperties = {
@@ -231,13 +309,15 @@ const filterStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
-  gap: 22,
+  gridTemplateColumns: "repeat(auto-fill, 520px)",
+  gap: 24,
+  justifyContent: "start",
 };
 
 const cardStyle: React.CSSProperties = {
+  width: "520px",
   background: "white",
-  borderRadius: 18,
+  borderRadius: 20,
   overflow: "hidden",
   boxShadow: "0 14px 38px rgba(15,23,42,0.08)",
   border: "1px solid #e5e7eb",
@@ -283,22 +363,22 @@ const iconBoxStyle: React.CSSProperties = {
 
 const cardTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 19,
+  fontSize: 21,
   lineHeight: 1.35,
   fontWeight: 900,
 };
 
 const companyStyle: React.CSSProperties = {
   marginTop: 8,
-  fontSize: 14,
+  fontSize: 15,
   fontWeight: 700,
 };
 
 const middleGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1.1fr 1fr",
-  gap: 18,
-  padding: "6px 22px 20px",
+  gridTemplateColumns: "1fr",
+  gap: 20,
+  padding: "6px 22px 22px",
 };
 
 const infoRowStyle: React.CSSProperties = {
@@ -307,35 +387,35 @@ const infoRowStyle: React.CSSProperties = {
   gap: 10,
   padding: "8px 0",
   color: "#475569",
-  fontSize: 14,
+  fontSize: 15,
 };
 
 const priceModelsStyle: React.CSSProperties = {
-  borderLeft: "1px solid #e2e8f0",
-  paddingLeft: 18,
+  borderTop: "1px solid #e2e8f0",
+  paddingTop: 18,
 };
 
 const priceTitleStyle: React.CSSProperties = {
   color: "#64748b",
-  fontSize: 13,
-  marginBottom: 8,
+  fontSize: 14,
+  marginBottom: 12,
 };
 
 const priceRowStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 8,
+  gap: 10,
   background: "#f8fafc",
-  padding: "7px 9px",
-  borderRadius: 8,
-  fontSize: 12,
+  padding: "10px 12px",
+  borderRadius: 10,
+  fontSize: 14,
   fontWeight: 700,
-  marginBottom: 7,
+  marginBottom: 10,
 };
 
 const priceDotStyle: React.CSSProperties = {
-  width: 8,
-  height: 8,
+  width: 9,
+  height: 9,
   borderRadius: "50%",
   flexShrink: 0,
 };
