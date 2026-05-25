@@ -43,15 +43,23 @@ export default function BuyMarketPage() {
       <header style={headerStyle}>
         <div>
           <h1 style={titleStyle}>Табло Купува</h1>
-          <p style={subtitleStyle}>
-            Активни заявки за покупка на електроенергия
-          </p>
+          <p style={subtitleStyle}>Активни заявки за покупка на електроенергия</p>
         </div>
-
         <div style={counterStyle}>📊 {auctions.length} активни търга</div>
       </header>
 
-      <div style={topLinkStyle}>Виж всички →</div>
+      <div style={tabsStyle}>
+        <button style={activeTabStyle}>🛒 Купува</button>
+        <button style={tabStyle}>📈 Продава</button>
+      </div>
+
+      <div style={filtersStyle}>
+        <button style={activeFilterStyle}>Всички</button>
+        <button style={filterStyle}>🔵 Фиксирана цена</button>
+        <button style={filterStyle}>🟢 Ден напред с балансиране</button>
+        <button style={filterStyle}>🟠 Ден напред без балансиране</button>
+        <button style={filterStyle}>🟣 Ден напред с двукомпонентна добавка</button>
+      </div>
 
       <section style={gridStyle}>
         {auctions.map((auction) => (
@@ -63,85 +71,58 @@ export default function BuyMarketPage() {
 
             <div style={mainRowStyle}>
               <div style={iconBoxStyle}>🛒</div>
-
               <div>
                 <h2 style={cardTitleStyle}>
-                  {auction.title || "Доставка на ел. енергия"}
+                  {auction.title || "Доставка на ел. енергия за търговски обект"}
                 </h2>
-
-                <p style={companyStyle}>
-                  {auction.sector || "Бизнес клиент"} 🔵
-                </p>
+                <p style={companyStyle}>{auction.sector || "Бизнес клиент"} 🔵</p>
               </div>
             </div>
 
-            <div style={detailsStyle}>
-              <InfoRow
-                label="Количество"
-                value={`${auction.annual_consumption_mwh || 0} MWh`}
-              />
+            <div style={middleGridStyle}>
+              <div>
+                <InfoRow label="Количество" value={`${auction.annual_consumption_mwh || 0} MWh`} />
+                <InfoRow
+                  label="Период"
+                  value={`${formatDate(auction.delivery_start_date)} - ${formatDate(auction.offer_deadline_date)}`}
+                />
+                <InfoRow
+                  label="Доставка"
+                  value={auction.network_components_included ? "С мрежови" : "Енергия"}
+                />
+              </div>
 
-              <InfoRow
-                label="Период"
-                value={`${auction.delivery_start_date || "-"} - ${
-                  auction.offer_deadline_date || "-"
-                }`}
-              />
+              <div style={priceModelsStyle}>
+                <div style={priceTitleStyle}>Приема ценови модели</div>
 
-              <InfoRow
-                label="Доставка"
-                value={
-                  auction.network_components_included
-                    ? "С мрежови"
-                    : "Енергия"
-                }
-              />
+                {auction.accepts_fixed_price && (
+                  <PriceRow label="Фиксирана цена" color="#2563eb" />
+                )}
+                {auction.accepts_day_ahead_with_balancing && (
+                  <PriceRow label="Ден напред с балансиране" color="#059669" />
+                )}
+                {auction.accepts_day_ahead_without_balancing && (
+                  <PriceRow label="Ден напред без балансиране" color="#ea580c" />
+                )}
+                {auction.accepts_hybrid && (
+                  <PriceRow label="Ден напред с двукомпонентна добавка" color="#7c3aed" />
+                )}
+              </div>
             </div>
-
-            <div style={priceBlockStyle}>
-  <div style={priceLabelStyle}>Приема ценови модели</div>
-
-  <div style={priceTableStyle}>
-    {auction.accepts_fixed_price && (
-      <PriceRow label="Фиксирана цена" color="#1d4ed8" />
-    )}
-
-    {auction.accepts_day_ahead_with_balancing && (
-      <PriceRow label="Ден напред с балансиране" color="#047857" />
-    )}
-
-    {auction.accepts_day_ahead_without_balancing && (
-      <PriceRow label="Ден напред без балансиране" color="#b45309" />
-    )}
-
-    {auction.accepts_hybrid && (
-      <PriceRow label="Ден напред с двукомпонентна добавка" color="#6d28d9" />
-    )}
-  </div>
-</div>
 
             <footer style={footerStyle}>
               <span>Край след:</span>
-              <strong>{auction.duration_months} м.</strong>
+              <strong>03ч 45м</strong>
+              <button style={buttonStyle}>Подай оферта</button>
             </footer>
           </article>
         ))}
       </section>
-
-      {auctions.length === 0 && (
-        <p style={{ color: "#64748b" }}>Няма активни търгове.</p>
-      )}
     </main>
   );
 }
 
-function InfoRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={infoRowStyle}>
       <span>{label}</span>
@@ -149,24 +130,25 @@ function InfoRow({
     </div>
   );
 }
-function PriceRow({
-  label,
-  color,
-}: {
-  label: string;
-  color: string;
-}) {
+
+function PriceRow({ label, color }: { label: string; color: string }) {
   return (
     <div style={priceRowStyle}>
-      <span style={{ ...priceDotStyle, background: color }}></span>
+      <span style={{ ...priceDotStyle, background: color }} />
       <span>{label}</span>
     </div>
   );
 }
+
+function formatDate(date: string) {
+  if (!date) return "-";
+  return new Date(date).toLocaleDateString("bg-BG");
+}
+
 const pageStyle: React.CSSProperties = {
   minHeight: "100vh",
   background: "#f8fafc",
-  padding: "34px 42px",
+  padding: "30px 38px",
   fontFamily: "Arial, sans-serif",
   color: "#0f172a",
 };
@@ -180,14 +162,13 @@ const headerStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 38,
-  fontWeight: 800,
+  fontSize: 40,
+  fontWeight: 900,
 };
 
 const subtitleStyle: React.CSSProperties = {
   color: "#64748b",
   fontSize: 17,
-  marginTop: 8,
 };
 
 const counterStyle: React.CSSProperties = {
@@ -198,17 +179,60 @@ const counterStyle: React.CSSProperties = {
   boxShadow: "0 10px 30px rgba(15,23,42,0.08)",
 };
 
-const topLinkStyle: React.CSSProperties = {
-  textAlign: "right",
+const tabsStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 18,
+  borderBottom: "1px solid #dbe3ef",
+  marginBottom: 24,
+};
+
+const activeTabStyle: React.CSSProperties = {
+  padding: "12px 16px",
+  border: 0,
+  borderBottom: "3px solid #2563eb",
+  background: "#eff6ff",
   color: "#2563eb",
   fontWeight: 800,
-  marginBottom: 18,
+  fontSize: 16,
+};
+
+const tabStyle: React.CSSProperties = {
+  padding: "12px 16px",
+  border: 0,
+  background: "transparent",
+  color: "#334155",
+  fontWeight: 700,
+  fontSize: 16,
+};
+
+const filtersStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 12,
+  marginBottom: 24,
+};
+
+const activeFilterStyle: React.CSSProperties = {
+  padding: "11px 16px",
+  borderRadius: 10,
+  border: "1px solid #2563eb",
+  background: "white",
+  color: "#2563eb",
+  fontWeight: 700,
+};
+
+const filterStyle: React.CSSProperties = {
+  padding: "11px 16px",
+  borderRadius: 10,
+  border: "1px solid #dbe3ef",
+  background: "white",
+  color: "#334155",
+  fontWeight: 700,
 };
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(380px, 420px))",
-justifyContent: "start",
+  gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
   gap: 22,
 };
 
@@ -223,8 +247,7 @@ const cardStyle: React.CSSProperties = {
 const cardTopStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "center",
-  padding: "20px 22px 8px",
+  padding: "18px 22px 6px",
 };
 
 const statusBadgeStyle: React.CSSProperties = {
@@ -244,8 +267,7 @@ const heartStyle: React.CSSProperties = {
 const mainRowStyle: React.CSSProperties = {
   display: "flex",
   gap: 16,
-  padding: "14px 22px 18px",
-  alignItems: "flex-start",
+  padding: "12px 22px 18px",
 };
 
 const iconBoxStyle: React.CSSProperties = {
@@ -253,7 +275,6 @@ const iconBoxStyle: React.CSSProperties = {
   height: 58,
   borderRadius: 18,
   background: "#e0e7ff",
-  color: "#1e3a8a",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -263,77 +284,80 @@ const iconBoxStyle: React.CSSProperties = {
 
 const cardTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 18,
+  fontSize: 19,
   lineHeight: 1.35,
-  fontWeight: 800,
+  fontWeight: 900,
 };
 
 const companyStyle: React.CSSProperties = {
-  color: "#0f172a",
   marginTop: 8,
   fontSize: 14,
-  fontWeight: 600,
+  fontWeight: 700,
 };
 
-const detailsStyle: React.CSSProperties = {
-  padding: "8px 22px 0",
+const middleGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1.1fr 1fr",
+  gap: 18,
+  padding: "6px 22px 20px",
 };
 
 const infoRowStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  gap: 12,
-  padding: "7px 0",
+  gap: 10,
+  padding: "8px 0",
   color: "#475569",
   fontSize: 14,
 };
 
-const priceBlockStyle: React.CSSProperties = {
-  borderTop: "1px solid #e5e7eb",
-  marginTop: 12,
-  padding: "16px 22px",
+const priceModelsStyle: React.CSSProperties = {
+  borderLeft: "1px solid #e2e8f0",
+  paddingLeft: 18,
 };
 
-const priceLabelStyle: React.CSSProperties = {
+const priceTitleStyle: React.CSSProperties = {
   color: "#64748b",
-  fontSize: 14,
+  fontSize: 13,
   marginBottom: 8,
-};
-
-const priceStyle: React.CSSProperties = {
-  color: "#059669",
-  fontSize: 21,
-  fontWeight: 900,
-};
-
-const footerStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  background: "#fff7ed",
-  color: "#c2410c",
-  padding: "14px 22px",
-  fontSize: 14,
-};
-const priceTableStyle: React.CSSProperties = {
-  display: "grid",
-  gap: 8,
 };
 
 const priceRowStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 10,
+  gap: 8,
   background: "#f8fafc",
-  padding: "9px 10px",
-  borderRadius: 10,
-  fontSize: 14,
+  padding: "7px 9px",
+  borderRadius: 8,
+  fontSize: 12,
   fontWeight: 700,
-  color: "#334155",
+  marginBottom: 7,
 };
 
 const priceDotStyle: React.CSSProperties = {
-  width: 9,
-  height: 9,
+  width: 8,
+  height: 8,
   borderRadius: "50%",
   flexShrink: 0,
+};
+
+const footerStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr auto auto",
+  alignItems: "center",
+  gap: 14,
+  background: "#fff7ed",
+  color: "#c2410c",
+  padding: "14px 22px",
+  fontSize: 14,
+};
+
+const buttonStyle: React.CSSProperties = {
+  padding: "10px 18px",
+  borderRadius: 9,
+  border: 0,
+  background: "#2563eb",
+  color: "white",
+  fontWeight: 800,
+  cursor: "pointer",
 };
