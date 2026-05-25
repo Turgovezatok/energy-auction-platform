@@ -19,94 +19,292 @@ type Auction = {
   accepts_hybrid: boolean;
   contract_type: string;
   preferred_payment_days: number;
-  created_at: string;
 };
 
 export default function BuyMarketPage() {
   const [auctions, setAuctions] = useState<Auction[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadAuctions();
   }, []);
 
   async function loadAuctions() {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("auctions")
       .select("*")
       .eq("board_type", "buy")
       .order("created_at", { ascending: false });
 
-    if (!error && data) {
+    if (data) {
       setAuctions(data);
     }
-
-    setLoading(false);
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: "Arial", padding: 40 }}>
-      <h1 style={{ fontSize: 42, marginBottom: 10 }}>Табло Купува</h1>
-      <p style={{ color: "#64748b", marginBottom: 32 }}>
-        Заявки от потребители и prosumers за покупка на електроенергия.
-      </p>
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "#f1f5f9",
+        padding: 40,
+        fontFamily: "Arial",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 30,
+        }}
+      >
+        <div>
+          <h1 style={{ fontSize: 42, marginBottom: 6 }}>
+            Табло Купува
+          </h1>
 
-      {loading && <p>Зареждане...</p>}
+          <p style={{ color: "#64748b" }}>
+            Активни заявки за покупка на електроенергия
+          </p>
+        </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 24 }}>
+        <div
+          style={{
+            background: "white",
+            padding: "12px 18px",
+            borderRadius: 14,
+            fontWeight: 700,
+          }}
+        >
+          {auctions.length} активни търга
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(380px,1fr))",
+          gap: 24,
+        }}
+      >
         {auctions.map((auction) => (
-          <div key={auction.id} style={{ background: "white", borderRadius: 22, padding: 28, boxShadow: "0 12px 35px rgba(15,23,42,0.08)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-              <span style={{ background: "#dcfce7", color: "#166534", padding: "6px 10px", borderRadius: 999, fontSize: 13, fontWeight: 700 }}>
-                КУПУВА
+          <div
+            key={auction.id}
+            style={{
+              background: "white",
+              borderRadius: 24,
+              padding: 28,
+              boxShadow: "0 12px 35px rgba(15,23,42,0.08)",
+              border: "1px solid #e2e8f0",
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: 18,
+              }}
+            >
+              <span
+                style={{
+                  background: "#dcfce7",
+                  color: "#166534",
+                  padding: "6px 12px",
+                  borderRadius: 999,
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              >
+                АКТИВЕН
               </span>
 
-              <span style={{ color: "#64748b", fontSize: 14 }}>
-                {auction.duration_months} м.
+              <span
+                style={{
+                  color: "#64748b",
+                  fontSize: 14,
+                }}
+              >
+                {auction.duration_months} месеца
               </span>
             </div>
 
-            <h2 style={{ fontSize: 22, marginBottom: 10 }}>{auction.title}</h2>
+            {/* Title */}
+            <h2
+              style={{
+                fontSize: 24,
+                marginBottom: 10,
+              }}
+            >
+              {auction.title}
+            </h2>
 
-            <p style={{ color: "#64748b", marginBottom: 20 }}>{auction.sector || "Без сектор"}</p>
+            <p
+              style={{
+                color: "#64748b",
+                marginBottom: 22,
+              }}
+            >
+              {auction.sector}
+            </p>
 
-            <div style={{ display: "grid", gap: 10, fontSize: 15 }}>
-              <Info label="Годишна консумация" value={`${auction.annual_consumption_mwh || 0} MWh`} />
-              <Info label="Начало доставка" value={auction.delivery_start_date || "-"} />
-              <Info label="Краен срок оферти" value={auction.offer_deadline_date || "-"} />
-              <Info label="ФЕЦ" value={auction.has_pv ? "Да" : "Не"} />
-              <Info label="Мрежови компоненти" value={auction.network_components_included ? "Включени" : "Без"} />
-              <Info label="Договор" value={auction.contract_type === "closed" ? "Затворен" : "Отворен"} />
-              <Info label="Плащане" value={`${auction.preferred_payment_days || "-"} дни`} />
+            {/* Metrics */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 16,
+                marginBottom: 24,
+              }}
+            >
+              <Metric
+                label="Консумация"
+                value={`${auction.annual_consumption_mwh || 0} MWh`}
+              />
+
+              <Metric
+                label="Плащане"
+                value={`${auction.preferred_payment_days || "-"} дни`}
+              />
+
+              <Metric
+                label="Начало"
+                value={auction.delivery_start_date || "-"}
+              />
+
+              <Metric
+                label="Оферти до"
+                value={auction.offer_deadline_date || "-"}
+              />
             </div>
 
-            <div style={{ marginTop: 20 }}>
-              <strong>Приема оферти:</strong>
-              <ul style={{ color: "#475569", paddingLeft: 20 }}>
-                {auction.accepts_fixed_price && <li>Фиксирана цена</li>}
-                {auction.accepts_day_ahead_with_balancing && <li>Ден напред + добавка с балансиране</li>}
-                {auction.accepts_day_ahead_without_balancing && <li>Ден напред + добавка без балансиране</li>}
-                {auction.accepts_hybrid && <li>Хибриден модел</li>}
-              </ul>
+            {/* Tags */}
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+                marginBottom: 22,
+              }}
+            >
+              {auction.accepts_fixed_price && (
+                <Tag text="Фиксирана цена" color="#dbeafe" />
+              )}
+
+              {auction.accepts_day_ahead_with_balancing && (
+                <Tag text="DA + балансиране" color="#dcfce7" />
+              )}
+
+              {auction.accepts_day_ahead_without_balancing && (
+                <Tag text="Без небаланс" color="#fef3c7" />
+              )}
+
+              {auction.accepts_hybrid && (
+                <Tag text="Хибриден модел" color="#ede9fe" />
+              )}
+
+              {auction.has_pv && (
+                <Tag text="Prosumer / ФЕЦ" color="#fce7f3" />
+              )}
+
+              {auction.network_components_included && (
+                <Tag text="С мрежови" color="#e0f2fe" />
+              )}
             </div>
 
-            <button style={{ marginTop: 18, width: "100%", padding: 14, border: 0, borderRadius: 14, background: "#059669", color: "white", fontWeight: 700, fontSize: 16 }}>
-              Подай оферта
-            </button>
+            {/* Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "#64748b",
+                  }}
+                >
+                  Тип договор
+                </div>
+
+                <strong>
+                  {auction.contract_type === "closed"
+                    ? "Затворен"
+                    : "Отворен"}
+                </strong>
+              </div>
+
+              <button
+                style={{
+                  padding: "14px 20px",
+                  borderRadius: 14,
+                  border: 0,
+                  background: "#059669",
+                  color: "white",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Подай оферта
+              </button>
+            </div>
           </div>
         ))}
       </div>
-
-      {!loading && auctions.length === 0 && <p>Все още няма активни заявки за покупка.</p>}
     </main>
   );
 }
 
-function Info({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: 8 }}>
-      <span style={{ color: "#64748b" }}>{label}</span>
+    <div
+      style={{
+        background: "#f8fafc",
+        borderRadius: 16,
+        padding: 16,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 13,
+          color: "#64748b",
+          marginBottom: 6,
+        }}
+      >
+        {label}
+      </div>
+
       <strong>{value}</strong>
     </div>
+  );
+}
+
+function Tag({
+  text,
+  color,
+}: {
+  text: string;
+  color: string;
+}) {
+  return (
+    <span
+      style={{
+        background: color,
+        padding: "8px 12px",
+        borderRadius: 999,
+        fontSize: 13,
+        fontWeight: 600,
+      }}
+    >
+      {text}
+    </span>
   );
 }
