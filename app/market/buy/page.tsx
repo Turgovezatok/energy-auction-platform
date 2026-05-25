@@ -23,6 +23,8 @@ type Auction = {
 
 export default function BuyMarketPage() {
   const [auctions, setAuctions] = useState<Auction[]>([]);
+  const [selectedAuction, setSelectedAuction] = useState<Auction | null>(null);
+const [offerMessage, setOfferMessage] = useState("");
 
   useEffect(() => {
     loadAuctions();
@@ -169,9 +171,12 @@ export default function BuyMarketPage() {
 
               <strong>03ч 45м</strong>
 
-              <button style={buttonStyle}>
-                Подай оферта
-              </button>
+             <button
+  style={buttonStyle}
+  onClick={() => setSelectedAuction(auction)}
+>
+  Подай оферта
+</button>
             </footer>
           </article>
         ))}
