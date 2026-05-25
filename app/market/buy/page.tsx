@@ -183,7 +183,8 @@ const topLinkStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(330px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(380px, 420px))",
+justifyContent: "start",
   gap: 22,
 };
 
