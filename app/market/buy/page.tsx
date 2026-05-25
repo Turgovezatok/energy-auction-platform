@@ -181,7 +181,58 @@ const [offerMessage, setOfferMessage] = useState("");
           </article>
         ))}
       </section>
-    </main>
+
+{selectedAuction && (
+  <div style={modalOverlayStyle}>
+    <div style={modalStyle}>
+      <h2 style={modalTitleStyle}>
+        Подай оферта
+      </h2>
+
+      <p style={modalSubtitleStyle}>
+        {selectedAuction.title}
+      </p>
+
+      <input
+        type="number"
+        placeholder="Фиксирана цена €/MWh"
+        style={inputStyle}
+      />
+
+      <input
+        type="number"
+        placeholder="Добавка €/MWh"
+        style={inputStyle}
+      />
+
+      <input
+        type="number"
+        placeholder="Процент %"
+        style={inputStyle}
+      />
+
+      <textarea
+        placeholder="Бележки"
+        style={textareaStyle}
+      />
+
+      <div style={modalButtonsStyle}>
+        <button
+          style={closeButtonStyle}
+          onClick={() => setSelectedAuction(null)}
+        >
+          Затвори
+        </button>
+
+        <button style={submitButtonStyle}>
+          Изпрати оферта
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+</main>
   );
 }
 
@@ -439,6 +490,78 @@ const footerStyle: React.CSSProperties = {
 const buttonStyle: React.CSSProperties = {
   padding: "10px 18px",
   borderRadius: 9,
+  border: 0,
+  background: "#2563eb",
+  color: "white",
+  fontWeight: 800,
+  cursor: "pointer",
+};
+const modalOverlayStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(15,23,42,0.45)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 1000,
+};
+
+const modalStyle: React.CSSProperties = {
+  width: 500,
+  background: "white",
+  borderRadius: 18,
+  padding: 28,
+  boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
+};
+
+const modalTitleStyle: React.CSSProperties = {
+  margin: 0,
+  marginBottom: 10,
+  fontSize: 28,
+  fontWeight: 900,
+};
+
+const modalSubtitleStyle: React.CSSProperties = {
+  color: "#64748b",
+  marginBottom: 24,
+};
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "14px 16px",
+  borderRadius: 12,
+  border: "1px solid #cbd5e1",
+  marginBottom: 14,
+  fontSize: 15,
+};
+
+const textareaStyle: React.CSSProperties = {
+  width: "100%",
+  minHeight: 120,
+  padding: "14px 16px",
+  borderRadius: 12,
+  border: "1px solid #cbd5e1",
+  marginBottom: 18,
+  fontSize: 15,
+};
+
+const modalButtonsStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: 12,
+};
+
+const closeButtonStyle: React.CSSProperties = {
+  padding: "12px 18px",
+  borderRadius: 10,
+  border: "1px solid #cbd5e1",
+  background: "white",
+  cursor: "pointer",
+};
+
+const submitButtonStyle: React.CSSProperties = {
+  padding: "12px 18px",
+  borderRadius: 10,
   border: 0,
   background: "#2563eb",
   color: "white",
