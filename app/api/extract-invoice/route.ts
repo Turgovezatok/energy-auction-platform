@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import pdf from "pdf-parse";
+const pdf = require("pdf-parse");
 
 function toNumber(value: string | null) {
   if (!value) return null;
@@ -34,7 +34,7 @@ function extractInvoiceData(text: string) {
     text.match(/Ел\. енергия\s+кВтч\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/i);
 
   const tokiEnergyMwhMatch =
-    text.match(/Активна енергия.*?MWh\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/is);
+   text.replace(/\n/g, " ").match(/Активна енергия.*?MWh\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/i);
 
   let consumptionMwh = null;
   let energyPrice = null;
