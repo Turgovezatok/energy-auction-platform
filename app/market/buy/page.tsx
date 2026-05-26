@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 
-const supabase = createClient();
+
 
 export default function BuyMarketPage() {
   const [auctions, setAuctions] = useState<any[]>([]);
