@@ -1,93 +1,572 @@
-async function submitOffer(e: React.FormEvent<HTMLFormElement>) {
-  e.preventDefault();
+"use client";
 
-  if (!selectedAuction) return;
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
-  const formData = new FormData(e.currentTarget);
+const supabase = createClient();
 
-  const pricingModel = String(formData.get("pricing_model") || "");
+export default function BuyMarketPage() {
+  const [auctions, setAuctions] = useState<any[]>([]);
+  const [selectedAuction, setSelectedAuction] = useState<any | null>(null);
+  const [offerMessage, setOfferMessage] = useState("");
 
-  const fixedPrice =
-    Number(formData.get("fixed_price_eur_mwh")) || null;
+  useEffect(() => {
+    loadAuctions();
+  }, []);
 
-  const dayAheadAdder =
-    Number(formData.get("day_ahead_adder_eur_mwh")) || null;
+  async function loadAuctions() {
+    const { data, error } = await supabase
+      .from("auctions")
+      .select("*")
+      .eq("board_type", "buy")
+      .order("created_at", { ascending: false });
 
-  const hybridFixedAdder =
-    Number(formData.get("hybrid_fixed_adder_eur_mwh")) || null;
-
-  const hybridPercent =
-    Number(formData.get("hybrid_percent")) || null;
-
-  if (pricingModel === "fixed" && !fixedPrice) {
-    setOfferMessage("Моля въведи фиксирана цена.");
-    return;
+    if (!error && data) {
+      setAuctions(data);
+    }
   }
 
-  if (
-    (pricingModel === "day_ahead_adder" ||
-      pricingModel === "day_ahead_no_balancing") &&
-    !dayAheadAdder
+  async function submitOffer(
+    e: React.FormEvent<HTMLFormElement>
   ) {
-    setOfferMessage("Моля въведи добавка €/MWh.");
-    return;
-  }
+    e.preventDefault();
 
-  if (
-    pricingModel === "hybrid" &&
-    (!hybridFixedAdder || !hybridPercent)
-  ) {
-    setOfferMessage(
-      "Моля въведи фиксирана част и процентна добавка."
+    if (!selectedAuction) return;
+
+    const formData = new FormData(e.currentTarget);
+
+    const pricingModel = String(
+      formData.get("pricing_model") || ""
     );
-    return;
+
+    const fixedPrice =
+      Number(formData.get("fixed_price_eur_mwh")) ||
+      null;
+
+    const dayAheadAdder =
+      Number(
+        formData.get("day_ahead_adder_eur_mwh")
+      ) || null;
+
+    const hybridFixedAdder =
+      Number(
+        formData.get(
+          "hybrid_fixed_adder_eur_mwh"
+        )
+      ) || null;
+
+    const hybridPercent =
+      Number(formData.get("hybrid_percent")) ||
+      null;
+
+    if (pricingModel === "fixed" && !fixedPrice) {
+      setOfferMessage(
+        "Моля въведи фиксирана цена."
+      );
+      return;
+    }
+
+    if (
+      (pricingModel === "day_ahead_adder" ||
+        pricingModel ===
+          "day_ahead_no_balancing") &&
+      !dayAheadAdder
+    ) {
+      setOfferMessage(
+        "Моля въведи добавка €/MWh."
+      );
+      return;
+    }
+
+    if (
+      pricingModel === "hybrid" &&
+      (!hybridFixedAdder || !hybridPercent)
+    ) {
+      setOfferMessage(
+        "Моля въведи фиксирана част и процент."
+      );
+      return;
+    }
+
+    const year = new Date().getFullYear();
+
+    const randomNumber = Math.floor(
+      100000 + Math.random() * 900000
+    );
+
+    const offerNumber = `OFFER-${year}-${randomNumber}`;
+
+    const { error } = await supabase
+      .from("offers")
+      .insert({
+        offer_number: offerNumber,
+        offer_status: "submitted",
+        submitted_at:
+          new Date().toISOString(),
+
+        auction_id: selectedAuction.id,
+
+        pricing_model: pricingModel,
+
+        fixed_price_eur_mwh: fixedPrice,
+
+        day_ahead_adder_eur_mwh:
+          dayAheadAdder,
+
+        hybrid_fixed_adder_eur_mwh:
+          hybridFixedAdder,
+
+        hybrid_percent: hybridPercent,
+
+        payment_days:
+          Number(
+            formData.get("payment_days")
+          ) || null,
+
+        offer_validity_days:
+          Number(
+            formData.get(
+              "offer_validity_days"
+            )
+          ) || null,
+
+        notes: formData.get("notes"),
+      });
+
+    if (error) {
+      setOfferMessage(error.message);
+      return;
+    }
+
+    setOfferMessage(
+      `Офертата е изпратена успешно ✅ Номер: ${offerNumber}`
+    );
+
+    setTimeout(() => {
+      setSelectedAuction(null);
+      setOfferMessage("");
+    }, 1800);
   }
 
-  const year = new Date().getFullYear();
+  return (
+    <main style={pageStyle}>
+      <h1 style={titleStyle}>Табло Купува</h1>
 
-  const randomNumber = Math.floor(
-    100000 + Math.random() * 900000
+      <p style={subtitleStyle}>
+        Активни заявки за покупка на
+        електроенергия
+      </p>
+
+      <section style={gridStyle}>
+        {auctions.map((auction) => (
+          <article
+            key={auction.id}
+            style={cardStyle}
+          >
+            <div style={badgeStyle}>
+              Скоро изтича
+            </div>
+
+            <h2 style={cardTitleStyle}>
+              {auction.title}
+            </h2>
+
+            <p style={sectorStyle}>
+              {auction.sector}
+            </p>
+
+            <div style={infoGridStyle}>
+              <InfoRow
+                label="Количество"
+                value={`${auction.quantity_mwh} MWh`}
+              />
+
+              <InfoRow
+                label="Период"
+                value={`${auction.delivery_start} - ${auction.offer_deadline}`}
+              />
+
+              <InfoRow
+                label="Доставка"
+                value={
+                  auction.include_grid
+                    ? "С мрежови"
+                    : "Без мрежови"
+                }
+              />
+            </div>
+
+            <div style={pricingBoxStyle}>
+              <div style={pricingTitleStyle}>
+                Приема ценови модели
+              </div>
+
+              <PricingRow color="#2563eb">
+                Фиксирана цена
+              </PricingRow>
+
+              <PricingRow color="#059669">
+                Ден напред с балансиране
+              </PricingRow>
+
+              <PricingRow color="#ea580c">
+                Ден напред без балансиране
+              </PricingRow>
+
+              <PricingRow color="#7c3aed">
+                Ден напред с двукомпонентна
+                добавка
+              </PricingRow>
+            </div>
+
+            <footer style={footerStyle}>
+              <div>
+                Край след:
+                <strong> 03ч 45м</strong>
+              </div>
+
+              <button
+                style={buttonStyle}
+                onClick={() =>
+                  setSelectedAuction(
+                    auction
+                  )
+                }
+              >
+                Подай оферта
+              </button>
+            </footer>
+          </article>
+        ))}
+      </section>
+
+      {selectedAuction && (
+        <div style={overlayStyle}>
+          <div style={modalStyle}>
+            <h2 style={modalTitleStyle}>
+              Подай оферта
+            </h2>
+
+            <p>
+              {selectedAuction.title}
+            </p>
+
+            <form
+              onSubmit={submitOffer}
+            >
+              <label>
+                Ценови модел
+              </label>
+
+              <select
+                name="pricing_model"
+                required
+                style={inputStyle}
+              >
+                <option value="fixed">
+                  Фиксирана цена
+                </option>
+
+                <option value="day_ahead_adder">
+                  Ден напред с балансиране
+                </option>
+
+                <option value="day_ahead_no_balancing">
+                  Ден напред без балансиране
+                </option>
+
+                <option value="hybrid">
+                  Ден напред с
+                  двукомпонентна добавка
+                </option>
+              </select>
+
+              <input
+                name="fixed_price_eur_mwh"
+                placeholder="Фиксирана цена €/MWh"
+                style={inputStyle}
+              />
+
+              <input
+                name="day_ahead_adder_eur_mwh"
+                placeholder="Добавка €/MWh"
+                style={inputStyle}
+              />
+
+              <input
+                name="hybrid_fixed_adder_eur_mwh"
+                placeholder="Фиксирана част €/MWh"
+                style={inputStyle}
+              />
+
+              <input
+                name="hybrid_percent"
+                placeholder="Процент %"
+                style={inputStyle}
+              />
+
+              <input
+                name="payment_days"
+                placeholder="Срок плащане"
+                style={inputStyle}
+              />
+
+              <input
+                name="offer_validity_days"
+                placeholder="Валидност"
+                style={inputStyle}
+              />
+
+              <textarea
+                name="notes"
+                placeholder="Бележки"
+                style={textareaStyle}
+              />
+
+              {offerMessage && (
+                <div
+                  style={messageStyle}
+                >
+                  {offerMessage}
+                </div>
+              )}
+
+              <div
+                style={modalButtonsStyle}
+              >
+                <button
+                  type="button"
+                  style={secondaryButtonStyle}
+                  onClick={() =>
+                    setSelectedAuction(
+                      null
+                    )
+                  }
+                >
+                  Затвори
+                </button>
+
+                <button
+                  type="submit"
+                  style={buttonStyle}
+                >
+                  Изпрати оферта
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </main>
   );
-
-  const offerNumber = `OFFER-${year}-${randomNumber}`;
-
-  const { error } = await supabase.from("offers").insert({
-    offer_number: offerNumber,
-    offer_status: "submitted",
-    submitted_at: new Date().toISOString(),
-
-    auction_id: selectedAuction.id,
-
-    pricing_model: pricingModel,
-
-    fixed_price_eur_mwh: fixedPrice,
-
-    day_ahead_adder_eur_mwh: dayAheadAdder,
-
-    hybrid_fixed_adder_eur_mwh: hybridFixedAdder,
-
-    hybrid_percent: hybridPercent,
-
-    payment_days:
-      Number(formData.get("payment_days")) || null,
-
-    offer_validity_days:
-      Number(formData.get("offer_validity_days")) || null,
-
-    notes: formData.get("notes"),
-  });
-
-  if (error) {
-    setOfferMessage(error.message);
-    return;
-  }
-
-  setOfferMessage(
-    `Офертата е изпратена успешно ✅ Номер: ${offerNumber}`
-  );
-
-  setTimeout(() => {
-    setSelectedAuction(null);
-    setOfferMessage("");
-  }, 1800);
 }
+
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div style={infoRowStyle}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function PricingRow({
+  children,
+  color,
+}: {
+  children: React.ReactNode;
+  color: string;
+}) {
+  return (
+    <div style={pricingRowStyle}>
+      <span
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: 999,
+          background: color,
+        }}
+      />
+
+      <span>{children}</span>
+    </div>
+  );
+}
+
+const pageStyle: React.CSSProperties = {
+  padding: 40,
+  background: "#f3f6fb",
+  minHeight: "100vh",
+};
+
+const titleStyle: React.CSSProperties = {
+  fontSize: 54,
+  fontWeight: 800,
+  marginBottom: 12,
+};
+
+const subtitleStyle: React.CSSProperties = {
+  fontSize: 24,
+  color: "#64748b",
+  marginBottom: 40,
+};
+
+const gridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(auto-fill, 520px)",
+  gap: 24,
+};
+
+const cardStyle: React.CSSProperties = {
+  background: "#fff",
+  borderRadius: 28,
+  padding: 28,
+  boxShadow:
+    "0 4px 20px rgba(15,23,42,0.05)",
+};
+
+const badgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  padding: "10px 18px",
+  background: "#fef3c7",
+  color: "#c2410c",
+  borderRadius: 999,
+  fontWeight: 700,
+  marginBottom: 24,
+};
+
+const cardTitleStyle: React.CSSProperties = {
+  fontSize: 36,
+  fontWeight: 800,
+};
+
+const sectorStyle: React.CSSProperties = {
+  fontSize: 24,
+  marginBottom: 28,
+};
+
+const infoGridStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 18,
+  marginBottom: 24,
+};
+
+const infoRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  paddingBottom: 12,
+  borderBottom: "1px solid #e2e8f0",
+};
+
+const pricingBoxStyle: React.CSSProperties = {
+  marginTop: 24,
+};
+
+const pricingTitleStyle: React.CSSProperties = {
+  marginBottom: 16,
+  color: "#64748b",
+};
+
+const pricingRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  padding: 16,
+  background: "#f8fafc",
+  borderRadius: 16,
+  marginBottom: 12,
+  fontWeight: 600,
+};
+
+const footerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginTop: 24,
+  paddingTop: 20,
+  borderTop: "1px solid #e2e8f0",
+};
+
+const buttonStyle: React.CSSProperties = {
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  borderRadius: 16,
+  padding: "14px 24px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const overlayStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background:
+    "rgba(15,23,42,0.5)",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  zIndex: 999,
+};
+
+const modalStyle: React.CSSProperties = {
+  width: 700,
+  background: "#fff",
+  borderRadius: 28,
+  padding: 32,
+  maxHeight: "90vh",
+  overflowY: "auto",
+};
+
+const modalTitleStyle: React.CSSProperties = {
+  fontSize: 42,
+  fontWeight: 800,
+  marginBottom: 16,
+};
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: 16,
+  borderRadius: 16,
+  border: "1px solid #cbd5e1",
+  marginTop: 16,
+  marginBottom: 8,
+};
+
+const textareaStyle: React.CSSProperties = {
+  width: "100%",
+  minHeight: 120,
+  padding: 16,
+  borderRadius: 16,
+  border: "1px solid #cbd5e1",
+  marginTop: 16,
+};
+
+const modalButtonsStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: 12,
+  marginTop: 24,
+};
+
+const secondaryButtonStyle: React.CSSProperties =
+  {
+    background: "#fff",
+    border: "1px solid #cbd5e1",
+    borderRadius: 16,
+    padding: "14px 24px",
+    fontWeight: 700,
+    cursor: "pointer",
+  };
+
+const messageStyle: React.CSSProperties = {
+  marginTop: 20,
+  color: "#059669",
+  fontWeight: 700,
+};
