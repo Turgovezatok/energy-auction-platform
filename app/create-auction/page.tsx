@@ -22,6 +22,35 @@ export default function CreateAuctionPage() {
     }
 
     const dayOfMonth = new Date(deliveryStartDate).getDate();
+    if (dayOfMonth !== 1) {
+  setMessage(
+    "Началната дата на доставка трябва да бъде първо число на месеца."
+  );
+  return;
+}const now = new Date();
+
+const year = now.getFullYear();
+
+const month = String(
+  now.getMonth() + 1
+).padStart(2, "0");
+
+const randomNumber = Math.floor(
+  100000 + Math.random() * 900000
+);
+
+let prefix = "CONS";
+
+if (customerType === "prosumer") {
+  prefix = "PROSUMER";
+}
+
+if (formData.get("board_type") === "sell") {
+  prefix = "PROD";
+}
+
+const auctionNumber =
+  `${prefix}-${year}${month}-${randomNumber}`;
 
     if (dayOfMonth !== 1) {
       setMessage(
@@ -30,8 +59,10 @@ export default function CreateAuctionPage() {
       return;
     }
 
-    const { error } = await supabase.from("auctions").insert({
-      board_type: formData.get("board_type"),
+   const { error } = await supabase.from("auctions").insert({
+  auction_number: auctionNumber,
+
+  board_type: formData.get("board_type"),
 
       title: formData.get("title"),
 
