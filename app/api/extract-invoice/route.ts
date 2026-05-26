@@ -56,7 +56,13 @@ function extractInvoiceData(text: string) {
     energyCost = toNumber(tokiEnergyMwhMatch[3]);
   }
 
-  const itnMatches = [...text.matchAll(/Обект ИТН №\s*(\d+)/g)].map((m) => m[1]);
+  const itnMatches: string[] = [];
+const itnRegex = /Обект ИТН №\s*(\d+)/g;
+let itnMatch;
+
+while ((itnMatch = itnRegex.exec(text)) !== null) {
+  itnMatches.push(itnMatch[1]);
+}
 
   const zones: any[] = [];
 
