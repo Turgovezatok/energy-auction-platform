@@ -38,6 +38,13 @@ Analyze this electricity invoice PDF:
 
 ${fileUrl}
 
+IMPORTANT:
+You must extract ALL sites / ALL ITN objects from ALL pages of the invoice.
+Do not stop after the first site.
+For every occurrence of "Обект ИТН №" create one object in "sites".
+If the invoice has 10 ITN objects, return 10 site objects.
+Do not invent data. Use only values explicitly visible in the invoice.
+
 Extract:
 - invoice_number
 - invoice_date
@@ -47,6 +54,8 @@ Extract:
 - client_number
 - reporting_period
 - supplier_name
+- total_consumption_MWh
+- energy_price_EUR_MWh
 
 Return also:
 
@@ -66,12 +75,22 @@ Return also:
   }
 ]
 
-For tariff_zones, extract only real rows from the invoice.
+For each site:
+- use only the data in the block under that specific "Обект ИТН №"
+- extract its own consumption
+- extract its own tariff zones
+- do not mix data between sites
+
 For Bulgarian invoices:
 - "Д" means Day / Дневна
 - "Н" means Night / Нощна
-Do not use Zone A or Zone B unless these exact names appear in the invoice.
-If tariff zones are not visible, return an empty array.
+- "В" means Peak / Върхова, if present
+- "НН" means low voltage, not a tariff zone
+
+For tariff_zones:
+- extract only real rows from the invoice
+- do not use Zone A / Zone B unless these exact names appear
+- if zones are not visible, return an empty array
 `,
           },
         ],
