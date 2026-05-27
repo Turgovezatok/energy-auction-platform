@@ -44,7 +44,11 @@ export default function ProcessInvoicePage() {
 
       const result =
         await response.json();
-
+if (!response.ok || result.error) {
+  alert("API грешка: " + (result.error || response.statusText));
+  setLoading(false);
+  return;
+}
       console.log(result);
 
       alert(
@@ -57,8 +61,9 @@ export default function ProcessInvoicePage() {
       );
     } catch (error) {
       alert(
-        "Грешка при extraction."
-      );
+  "Грешка при extraction: " +
+    (error instanceof Error ? error.message : String(error))
+);
     }
 
     setLoading(false);
