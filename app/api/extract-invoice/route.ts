@@ -63,6 +63,11 @@ Extract:
 - energy_price_EUR_MWh
 - capture_price_estimation
 - supplier_name
+- tariff_zones (array with:
+  - zone_name
+  - tariff_code
+  - consumption_kwh
+)
 `,
             },
           ],
@@ -92,6 +97,33 @@ Extract:
       .single();
 
     if (uploadRecord) {
+      if (
+  extracted.tariff_zones &&
+  Array.isArray(
+    extracted.tariff_zones
+  )
+) {
+  for (const zone of extracted.tariff_zones) {
+    await supabase
+      .from("invoice_site_zones")
+      .insert({
+        invoice_site_id:
+          uploadRecord.id,
+
+        zone_name:
+          zone.zone_name ||
+          null,
+
+        tariff_code:
+          zone.tariff_code ||
+          null,
+
+        consumption_kwh:
+          zone.consumption_kwh ||
+          null,
+      });
+  }
+}
       await supabase.from("invoice_sites").insert({
         invoice_id: uploadRecord.id,
         itn: extracted.ITN_numbers?.[0] || null,
