@@ -57,8 +57,18 @@ function extractInvoiceData(text: string) {
   }
 
   const itnMatches: string[] = [];
-const itnRegex = /Обект ИТН №\s*(\d+)/g;
+
+const itnRegex =
+  /Обект ИТН №\s*(\d+)/g;
+
 let itnMatch;
+
+while (
+  (itnMatch = itnRegex.exec(text)) !==
+  null
+) {
+  itnMatches.push(itnMatch[1]);
+}
 
 while ((itnMatch = itnRegex.exec(text)) !== null) {
   itnMatches.push(itnMatch[1]);
