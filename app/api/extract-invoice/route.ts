@@ -28,7 +28,8 @@ export async function POST(req: Request) {
         messages: [
           {
             role: "system",
-            content: "You extract structured electricity invoice data. Return ONLY valid JSON.",
+            content:
+              "You extract structured electricity invoice data. Return ONLY valid JSON. Do not invent data. If a field is not visible in the invoice, return null. Use only values explicitly present in the PDF.",
           },
           {
             role: "user",
@@ -55,7 +56,6 @@ Return also:
     "address": "",
     "consumption_MWh": 0,
     "energy_price_EUR_MWh": 0,
-
     "tariff_zones": [
       {
         "zone_name": "",
@@ -65,6 +65,14 @@ Return also:
     ]
   }
 ]
+
+For tariff_zones, extract only real rows from the invoice.
+For Bulgarian invoices:
+- "Д" means Day / Дневна
+- "Н" means Night / Нощна
+Do not use Zone A or Zone B unless these exact names appear in the invoice.
+If tariff zones are not visible, return an empty array.
+`,
           },
         ],
         temperature: 0,
@@ -89,30 +97,6 @@ Return also:
       .single();
 
     if (uploadRecord) {
-      const { data: site } = await supabase
-        .from("invoice_sites")
-        .insert({
-          invoice_id: uploadRecord.id,
-          itn: extracted.ITN_numbers?.[0] || null,
-          site_name: extracted.company_name || null,
-          distribution_operator: extracted.supplier_name || null,
-          consumption_mwh: extracted.total_consumption_MWh || null,
-          energy_price_eur_mwh: extracted.energy_price_EUR_MWh || null,
-        })
-        .select()
-        .single();
-
-      if (site && Array.isArray(extracted.tariff_zones)) {
-        for (const zone of extracted.tariff_zones) {
-          await supabase.from("invoice_site_zones").insert({
-            invoice_site_id: site.id,
-            zone_name: zone.zone_name || null,
-            zone_code: zone.tariff_code || null,
-            consumption_kwh: zone.consumption_kwh || null,
-          });
-        }
-      }
-
       await supabase
         .from("invoice_uploads")
         .update({
@@ -127,6 +111,35 @@ Return also:
           extracted_json: extracted,
         })
         .eq("id", uploadRecord.id);
+
+      if (Array.isArray(extracted.sites)) {
+        for (const extractedSite of extracted.sites) {
+          const { data: site } = await supabase
+            .from("invoice_sites")
+            .insert({
+              invoice_id: uploadRecord.id,
+              itn: extractedSite.itn || null,
+              address: extractedSite.address || null,
+              site_name: extracted.company_name || null,
+              distribution_operator: extracted.supplier_name || null,
+              consumption_mwh: extractedSite.consumption_MWh || null,
+              energy_price_eur_mwh: extractedSite.energy_price_EUR_MWh || null,
+            })
+            .select()
+            .single();
+
+          if (site && Array.isArray(extractedSite.tariff_zones)) {
+            for (const zone of extractedSite.tariff_zones) {
+              await supabase.from("invoice_site_zones").insert({
+                invoice_site_id: site.id,
+                zone_name: zone.zone_name || null,
+                zone_code: zone.tariff_code || null,
+                consumption_kwh: zone.consumption_kwh || null,
+              });
+            }
+          }
+        }
+      }
     }
 
     return NextResponse.json({ extracted });
