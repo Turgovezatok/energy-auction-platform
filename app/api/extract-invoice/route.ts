@@ -23,11 +23,17 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           model: "gpt-4.1-mini",
+          response_format: {
+            type: "json_object",
+          },
           messages: [
             {
               role: "system",
-              content:
-                "You extract structured electricity invoice data.",
+              content: `
+You extract structured electricity invoice data.
+
+Return ONLY valid JSON.
+`,
             },
             {
               role: "user",
@@ -37,21 +43,20 @@ Analyze this electricity invoice PDF:
 ${fileUrl}
 
 Extract:
-- invoice number
-- invoice date
-- company name
+- invoice_number
+- invoice_date
+- company_name
 - EIK
-- VAT number
-- client number
-- ITN numbers
-- reporting period
-- total consumption MWh
-- day/night consumption
-- energy price
-- capture price estimation
-- supplier name
-
-Return ONLY valid JSON.
+- VAT_number
+- client_number
+- ITN_numbers
+- reporting_period
+- total_consumption_MWh
+- day_consumption_MWh
+- night_consumption_MWh
+- energy_price_EUR_MWh
+- capture_price_estimation
+- supplier_name
 `,
             },
           ],
@@ -62,10 +67,21 @@ Return ONLY valid JSON.
 
     const result = await openaiResponse.json();
 
+    const content =
+      result.choices?.[0]?.message?.content;
+
+    let extracted = null;
+
+    try {
+      extracted = JSON.parse(content);
+    } catch {
+      extracted = {
+        raw_response: content,
+      };
+    }
+
     return NextResponse.json({
-      extracted:
-        result.choices?.[0]?.message?.content ||
-        result,
+      extracted,
     });
   } catch (error: any) {
     return NextResponse.json(
