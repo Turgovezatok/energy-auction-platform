@@ -44,16 +44,27 @@ Extract:
 - EIK
 - VAT_number
 - client_number
-- ITN_numbers
 - reporting_period
-- total_consumption_MWh
-- day_consumption_MWh
-- night_consumption_MWh
-- energy_price_EUR_MWh
-- capture_price_estimation
 - supplier_name
-- tariff_zones array with zone_name, tariff_code, consumption_kwh
-`,
+
+Return also:
+
+"sites": [
+  {
+    "itn": "",
+    "address": "",
+    "consumption_MWh": 0,
+    "energy_price_EUR_MWh": 0,
+
+    "tariff_zones": [
+      {
+        "zone_name": "",
+        "tariff_code": "",
+        "consumption_kwh": 0
+      }
+    ]
+  }
+]
           },
         ],
         temperature: 0,
