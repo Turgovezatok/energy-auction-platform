@@ -29,7 +29,19 @@ export async function POST(req: Request) {
           {
             role: "system",
             content:
-              "You extract structured electricity invoice data. Return ONLY valid JSON. Do not invent data. If a field is not visible in the invoice, return null. Use only values explicitly present in the PDF.",
+  `You extract structured electricity invoice data.
+
+Return ONLY valid JSON.
+Do not invent data.
+If a field is not visible in the invoice, return null.
+Use only values explicitly present in the PDF.
+
+Very important:
+supplier_name = the electricity supplier / invoice issuer / доставчик / издател на фактурата.
+company_name = the customer / recipient / получател на доставката / клиент.
+
+Never use the supplier as company_name.
+If the invoice has both supplier and recipient, company_name must be the recipient/customer.`,
           },
           {
             role: "user",
