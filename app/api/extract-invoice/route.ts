@@ -7,50 +7,12 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
 export async function POST(req: Request) {
   try {
     const { fileUrl } = await req.json();
 
     if (!fileUrl) {
-     const { data: uploadRecord } =
-  await supabase
-    .from("invoice_uploads")
-    .select("*")
-    .eq("file_url", fileUrl)
-    .single();
-
-if (uploadRecord) {
-  await supabase
-    .from("invoice_sites")
-    .insert({
-      invoice_upload_id:
-        uploadRecord.id,
-
-      itn_number:
-        extracted.ITN_numbers?.[0] ||
-        null,
-
-      supplier_name:
-        extracted.supplier_name ||
-        null,
-
-      total_consumption_mwh:
-        extracted.total_consumption_MWh ||
-        null,
-
-      capture_price:
-        extracted.capture_price_estimation ||
-        null,
-
-      reporting_period_start:
-        extracted.reporting_period
-          ?.start_date || null,
-
-      reporting_period_end:
-        extracted.reporting_period
-          ?.end_date || null,
-    });
-}
       return NextResponse.json(
         { error: "Missing fileUrl" },
         { status: 400 }
@@ -111,10 +73,9 @@ Extract:
 
     const result = await openaiResponse.json();
 
-    const content =
-      result.choices?.[0]?.message?.content;
+    const content = result.choices?.[0]?.message?.content;
 
-    let extracted = null;
+    let extracted: any = null;
 
     try {
       extracted = JSON.parse(content);
@@ -124,14 +85,47 @@ Extract:
       };
     }
 
+    const { data: uploadRecord } = await supabase
+      .from("invoice_uploads")
+      .select("*")
+      .eq("file_url", fileUrl)
+      .single();
+
+    if (uploadRecord) {
+      await supabase.from("invoice_sites").insert({
+        invoice_id: uploadRecord.id,
+        itn: extracted.ITN_numbers?.[0] || null,
+        site_name: extracted.company_name || null,
+        distribution_operator: extracted.supplier_name || null,
+        consumption_mwh: extracted.total_consumption_MWh || null,
+        energy_price_eur_mwh: extracted.energy_price_EUR_MWh || null,
+      });
+
+      await supabase
+        .from("invoice_uploads")
+        .update({
+          supplier_name: extracted.supplier_name || null,
+          invoice_number: extracted.invoice_number || null,
+          customer_name: extracted.company_name || null,
+          customer_eik: extracted.EIK || null,
+          customer_vat: extracted.VAT_number || null,
+          customer_number: extracted.client_number || null,
+          total_consumption_mwh:
+            extracted.total_consumption_MWh || null,
+          energy_price_eur_mwh:
+            extracted.energy_price_EUR_MWh || null,
+          extracted_json: extracted,
+        })
+        .eq("id", uploadRecord.id);
+    }
+
     return NextResponse.json({
       extracted,
     });
   } catch (error: any) {
     return NextResponse.json(
       {
-        error:
-          error.message || "Extraction failed",
+        error: error.message || "Extraction failed",
       },
       { status: 500 }
     );
