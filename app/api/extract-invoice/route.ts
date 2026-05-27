@@ -86,7 +86,23 @@ For Bulgarian invoices:
 - "Н" means Night / Нощна
 - "В" means Peak / Върхова, if present
 - "НН" means low voltage, not a tariff zone
+Supplier-specific rules:
 
+EVN / ЕВН:
+- In detailed site tables, use column "Начисл. кВтч" as billed consumption.
+- Do NOT use "Разлика" if "Начисл. кВтч" exists.
+- Row "Д НН" = Day / Дневна.
+- Row "Н НН" = Night / Нощна.
+- "НН" is voltage level, not tariff zone.
+
+TOKI / ТОКИ:
+- In table "Разпределение на електрическа енергия", use column "Общо" as billed consumption.
+- Do NOT use "Разлика кВтч" as final consumption.
+- "A Д 3т" = Day / Дневна.
+- "A Н 3т" = Night / Нощна.
+- "B3TCA" = Peak / Върхова.
+- "A B" = Other / Друга зона.
+- "М" = Meter/correction channel. Include it only if there is consumption in "Общо".
 For tariff_zones:
 - extract only real rows from the invoice
 - do not use Zone A / Zone B unless these exact names appear
