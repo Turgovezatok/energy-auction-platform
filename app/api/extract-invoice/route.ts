@@ -2,11 +2,25 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import pdf from "pdf-parse";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+async function extractPdfText(fileUrl: string) {
+  const response = await fetch(fileUrl);
+
+  if (!response.ok) {
+    throw new Error("Failed to download PDF");
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const data = await pdf(Buffer.from(arrayBuffer));
+
+  return data.text || "";
+}
 
 export async function POST(req: Request) {
   try {
@@ -14,6 +28,13 @@ export async function POST(req: Request) {
 
     if (!fileUrl) {
       return NextResponse.json({ error: "Missing fileUrl" }, { status: 400 });
+    }
+
+    const pdfText = await extractPdfText(fileUrl);
+    const trimmedText = pdfText.slice(0, 120000);
+
+    if (!trimmedText.trim()) {
+      throw new Error("Could not extract text from PDF");
     }
 
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -28,13 +49,12 @@ export async function POST(req: Request) {
         messages: [
           {
             role: "system",
-            content:
-  `You extract structured electricity invoice data.
+            content: `You extract structured electricity invoice data.
 
 Return ONLY valid JSON.
 Do not invent data.
 If a field is not visible in the invoice, return null.
-Use only values explicitly present in the PDF.
+Use only values explicitly present in the invoice text.
 
 Very important:
 supplier_name = the electricity supplier / invoice issuer / доставчик / издател на фактурата.
@@ -45,10 +65,9 @@ If the invoice has both supplier and recipient, company_name must be the recipie
           },
           {
             role: "user",
-            content: `
-Analyze this electricity invoice PDF:
+            content: `Analyze this electricity invoice text:
 
-${fileUrl}
+${trimmedText}
 
 IMPORTANT:
 You must extract ALL sites / ALL ITN objects from ALL pages of the invoice.
@@ -71,21 +90,33 @@ Extract:
 
 Return also:
 
-"sites": [
-  {
-    "itn": "",
-    "address": "",
-    "consumption_MWh": 0,
-    "energy_price_EUR_MWh": 0,
-    "tariff_zones": [
-      {
-        "zone_name": "",
-        "tariff_code": "",
-        "consumption_kwh": 0
-      }
-    ]
-  }
-]
+{
+  "invoice_number": null,
+  "invoice_date": null,
+  "company_name": null,
+  "EIK": null,
+  "VAT_number": null,
+  "client_number": null,
+  "reporting_period": null,
+  "supplier_name": null,
+  "total_consumption_MWh": null,
+  "energy_price_EUR_MWh": null,
+  "sites": [
+    {
+      "itn": null,
+      "address": null,
+      "consumption_MWh": null,
+      "energy_price_EUR_MWh": null,
+      "tariff_zones": [
+        {
+          "zone_name": null,
+          "tariff_code": null,
+          "consumption_kwh": null
+        }
+      ]
+    }
+  ]
+}
 
 For each site:
 - use only the data in the block under that specific "Обект ИТН №"
@@ -98,6 +129,7 @@ For Bulgarian invoices:
 - "Н" means Night / Нощна
 - "В" means Peak / Върхова, if present
 - "НН" means low voltage, not a tariff zone
+
 Supplier-specific rules:
 
 EVN / ЕВН:
@@ -115,16 +147,21 @@ TOKI / ТОКИ:
 - "B3TCA" = Peak / Върхова.
 - "A B" = Other / Друга зона.
 - "М" = Meter/correction channel. Include it only if there is consumption in "Общо".
+
 For tariff_zones:
 - extract only real rows from the invoice
 - do not use Zone A / Zone B unless these exact names appear
-- if zones are not visible, return an empty array
-`,
+- if zones are not visible, return an empty array`,
           },
         ],
         temperature: 0,
       }),
     });
+
+    if (!openaiResponse.ok) {
+      const errorText = await openaiResponse.text();
+      throw new Error(`OpenAI extraction failed: ${errorText}`);
+    }
 
     const result = await openaiResponse.json();
     const content = result.choices?.[0]?.message?.content;
@@ -137,60 +174,86 @@ For tariff_zones:
       extracted = { raw_response: content };
     }
 
-    const { data: uploadRecord } = await supabase
+    const { data: uploadRecord, error: uploadError } = await supabase
       .from("invoice_uploads")
       .select("*")
       .eq("file_url", fileUrl)
       .single();
 
-    if (uploadRecord) {
+    if (uploadError || !uploadRecord) {
+      return NextResponse.json({ extracted, warning: "Invoice upload record not found" });
+    }
+
+    await supabase
+      .from("invoice_uploads")
+      .update({
+        supplier_name: extracted.supplier_name || null,
+        invoice_number: extracted.invoice_number || null,
+        customer_name: extracted.company_name || null,
+        customer_eik: extracted.EIK || null,
+        customer_vat: extracted.VAT_number || null,
+        customer_number: extracted.client_number || null,
+        total_consumption_mwh: extracted.total_consumption_MWh || null,
+        energy_price_eur_mwh: extracted.energy_price_EUR_MWh || null,
+        extracted_json: extracted,
+        extraction_status: "completed",
+      })
+      .eq("id", uploadRecord.id);
+
+    const { data: existingSites } = await supabase
+      .from("invoice_sites")
+      .select("id")
+      .eq("invoice_id", uploadRecord.id);
+
+    if (existingSites && existingSites.length > 0) {
+      const siteIds = existingSites.map((site) => site.id);
+
       await supabase
-        .from("invoice_uploads")
-        .update({
-          supplier_name: extracted.supplier_name || null,
-          invoice_number: extracted.invoice_number || null,
-          customer_name: extracted.company_name || null,
-          customer_eik: extracted.EIK || null,
-          customer_vat: extracted.VAT_number || null,
-          customer_number: extracted.client_number || null,
-          total_consumption_mwh: extracted.total_consumption_MWh || null,
-          energy_price_eur_mwh: extracted.energy_price_EUR_MWh || null,
-          extracted_json: extracted,
-        })
-        .eq("id", uploadRecord.id);
+        .from("invoice_site_zones")
+        .delete()
+        .in("invoice_site_id", siteIds);
 
-      if (Array.isArray(extracted.sites)) {
-        for (const extractedSite of extracted.sites) {
-          const { data: site } = await supabase
-            .from("invoice_sites")
-            .insert({
-              invoice_id: uploadRecord.id,
-              itn: extractedSite.itn || null,
-              address: extractedSite.address || null,
-              site_name: extracted.company_name || null,
-              distribution_operator: extracted.supplier_name || null,
-              consumption_mwh: extractedSite.consumption_MWh || null,
-              energy_price_eur_mwh: extractedSite.energy_price_EUR_MWh || null,
-            })
-            .select()
-            .single();
+      await supabase
+        .from("invoice_sites")
+        .delete()
+        .eq("invoice_id", uploadRecord.id);
+    }
 
-          if (site && Array.isArray(extractedSite.tariff_zones)) {
-            for (const zone of extractedSite.tariff_zones) {
-              await supabase.from("invoice_site_zones").insert({
-                invoice_site_id: site.id,
-                zone_name: zone.zone_name || null,
-                zone_code: zone.tariff_code || null,
-                consumption_kwh:
-  zone.consumption_kwh ||
-  zone.consumption_KWh ||
-  zone.consumption_kWh ||
-  zone.kwh ||
-  zone.KWh ||
-  zone.consumption ||
-  null,
-              });
-            }
+    if (Array.isArray(extracted.sites)) {
+      for (const extractedSite of extracted.sites) {
+        const { data: site, error: siteError } = await supabase
+          .from("invoice_sites")
+          .insert({
+            invoice_id: uploadRecord.id,
+            itn: extractedSite.itn || null,
+            address: extractedSite.address || null,
+            site_name: extracted.company_name || null,
+            distribution_operator: extracted.supplier_name || null,
+            consumption_mwh: extractedSite.consumption_MWh || null,
+            energy_price_eur_mwh: extractedSite.energy_price_EUR_MWh || null,
+          })
+          .select()
+          .single();
+
+        if (siteError || !site) {
+          continue;
+        }
+
+        if (Array.isArray(extractedSite.tariff_zones)) {
+          for (const zone of extractedSite.tariff_zones) {
+            await supabase.from("invoice_site_zones").insert({
+              invoice_site_id: site.id,
+              zone_name: zone.zone_name || null,
+              zone_code: zone.tariff_code || null,
+              consumption_kwh:
+                zone.consumption_kwh ||
+                zone.consumption_KWh ||
+                zone.consumption_kWh ||
+                zone.kwh ||
+                zone.KWh ||
+                zone.consumption ||
+                null,
+            });
           }
         }
       }
