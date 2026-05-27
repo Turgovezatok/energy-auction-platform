@@ -2,14 +2,14 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-
+import pdfParse from "pdf-parse";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-async function extractPdfText(fileUrl: string) {
+async function extractPdfText(fileUrl: string): Promise<string> {
   const response = await fetch(fileUrl);
 
   if (!response.ok) {
@@ -17,7 +17,9 @@ async function extractPdfText(fileUrl: string) {
   }
 
   const arrayBuffer = await response.arrayBuffer();
-  const data = await pdf(Buffer.from(arrayBuffer));
+  const buffer = Buffer.from(arrayBuffer);
+
+  const data = await pdfParse(buffer);
 
   return data.text || "";
 }
@@ -88,7 +90,7 @@ Extract:
 - total_consumption_MWh
 - energy_price_EUR_MWh
 
-Return also:
+Return exactly this JSON structure:
 
 {
   "invoice_number": null,
@@ -166,10 +168,10 @@ For tariff_zones:
     const result = await openaiResponse.json();
     const content = result.choices?.[0]?.message?.content;
 
-    let extracted: any = null;
+    let extracted: any;
 
     try {
-      extracted = JSON.parse(content);
+      extracted = JSON.parse(content || "{}");
     } catch {
       extracted = { raw_response: content };
     }
@@ -181,7 +183,10 @@ For tariff_zones:
       .single();
 
     if (uploadError || !uploadRecord) {
-      return NextResponse.json({ extracted, warning: "Invoice upload record not found" });
+      return NextResponse.json({
+        extracted,
+        warning: "Invoice upload record not found",
+      });
     }
 
     await supabase
@@ -206,7 +211,7 @@ For tariff_zones:
       .eq("invoice_id", uploadRecord.id);
 
     if (existingSites && existingSites.length > 0) {
-      const siteIds = existingSites.map((site) => site.id);
+      const siteIds = existingSites.map((site: any) => site.id);
 
       await supabase
         .from("invoice_site_zones")
