@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { PDFParse } from "pdf-parse";
+import pdfParse from "pdf-parse";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,10 +34,9 @@ async function extractPdfText(fileUrl: string): Promise<string> {
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  const parser = new PDFParse({ data: buffer });
-  const result = await parser.getText();
+  const data = await pdfParse(buffer);
 
-  return result.text || "";
+  return data.text || "";
 }
 
 export async function POST(req: Request) {
