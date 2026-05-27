@@ -12,9 +12,38 @@ const supabase = createClient(
 async function extractPdfText(fileUrl: string): Promise<string> {
   const response = await fetch(fileUrl);
 
+  async function extractPdfText(fileUrl: string): Promise<string> {
+  const response = await fetch(fileUrl);
+
   if (!response.ok) {
-    throw new Error("Failed to download PDF");
+    const errorText = await response.text();
+
+    throw new Error(
+      `Failed to download PDF. Status: ${response.status}. Response: ${errorText.slice(0, 200)}`
+    );
   }
+
+  const contentType = response.headers.get("content-type") || "";
+
+  if (
+    !contentType.includes("pdf") &&
+    !contentType.includes("application/octet-stream")
+  ) {
+    const errorText = await response.text();
+
+    throw new Error(
+      `URL did not return PDF. Content-Type: ${contentType}. Response: ${errorText.slice(0, 200)}`
+    );
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  const parser = new PDFParse({ data: buffer });
+  const result = await parser.getText();
+
+  return result.text || "";
+}
 
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
