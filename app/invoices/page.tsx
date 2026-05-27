@@ -79,9 +79,12 @@ export default function InvoicesPage() {
                 Преглед PDF
               </a>
 
-              <button style={primaryButtonStyle}>
-                Създай търг
-              </button>
+              <a
+  href={`/create-auction?invoiceId=${invoice.id}`}
+  style={primaryButtonStyle}
+>
+  Създай търг
+</a>
             </div>
           </article>
         ))}
