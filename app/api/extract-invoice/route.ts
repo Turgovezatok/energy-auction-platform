@@ -169,7 +169,14 @@ For tariff_zones:
                 invoice_site_id: site.id,
                 zone_name: zone.zone_name || null,
                 zone_code: zone.tariff_code || null,
-                consumption_kwh: zone.consumption_kwh || null,
+                consumption_kwh:
+  zone.consumption_kwh ||
+  zone.consumption_KWh ||
+  zone.consumption_kWh ||
+  zone.kwh ||
+  zone.KWh ||
+  zone.consumption ||
+  null,
               });
             }
           }
