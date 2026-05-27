@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import pdf from "pdf-parse";
+
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
