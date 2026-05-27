@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import pdfParse from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,9 +19,10 @@ async function extractPdfText(fileUrl: string): Promise<string> {
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  const data = await pdfParse(buffer);
+  const parser = new PDFParse({ data: buffer });
+  const result = await parser.getText();
 
-  return data.text || "";
+  return result.text || "";
 }
 
 export async function POST(req: Request) {
@@ -29,7 +30,10 @@ export async function POST(req: Request) {
     const { fileUrl } = await req.json();
 
     if (!fileUrl) {
-      return NextResponse.json({ error: "Missing fileUrl" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing fileUrl" },
+        { status: 400 }
+      );
     }
 
     const pdfText = await extractPdfText(fileUrl);
@@ -39,19 +43,21 @@ export async function POST(req: Request) {
       throw new Error("Could not extract text from PDF");
     }
 
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content: `You extract structured electricity invoice data.
+    const openaiResponse = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4.1-mini",
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content: `You extract structured electricity invoice data.
 
 Return ONLY valid JSON.
 Do not invent data.
@@ -64,10 +70,10 @@ company_name = the customer / recipient / получател на доставк
 
 Never use the supplier as company_name.
 If the invoice has both supplier and recipient, company_name must be the recipient/customer.`,
-          },
-          {
-            role: "user",
-            content: `Analyze this electricity invoice text:
+            },
+            {
+              role: "user",
+              content: `Analyze this electricity invoice text:
 
 ${trimmedText}
 
@@ -129,43 +135,33 @@ For each site:
 For Bulgarian invoices:
 - "Д" means Day / Дневна
 - "Н" means Night / Нощна
-- "В" means Peak / Върхова, if present
-- "НН" means low voltage, not a tariff zone
-
-Supplier-specific rules:
+- "В" means Peak / Върхова
+- "НН" means low voltage, not tariff zone
 
 EVN / ЕВН:
-- In detailed site tables, use column "Начисл. кВтч" as billed consumption.
-- Do NOT use "Разлика" if "Начисл. кВтч" exists.
-- Row "Д НН" = Day / Дневна.
-- Row "Н НН" = Night / Нощна.
-- "НН" is voltage level, not tariff zone.
+- Use "Начисл. кВтч"
+- Ignore "Разлика"
 
 TOKI / ТОКИ:
-- In table "Разпределение на електрическа енергия", use column "Общо" as billed consumption.
-- Do NOT use "Разлика кВтч" as final consumption.
-- "A Д 3т" = Day / Дневна.
-- "A Н 3т" = Night / Нощна.
-- "B3TCA" = Peak / Върхова.
-- "A B" = Other / Друга зона.
-- "М" = Meter/correction channel. Include it only if there is consumption in "Общо".
+- Use column "Общо"
+- Ignore "Разлика кВтч"
 
-For tariff_zones:
-- extract only real rows from the invoice
-- do not use Zone A / Zone B unless these exact names appear
-- if zones are not visible, return an empty array`,
-          },
-        ],
-        temperature: 0,
-      }),
-    });
+If zones are not visible return empty array.`,
+            },
+          ],
+          temperature: 0,
+        }),
+      }
+    );
 
     if (!openaiResponse.ok) {
       const errorText = await openaiResponse.text();
+
       throw new Error(`OpenAI extraction failed: ${errorText}`);
     }
 
     const result = await openaiResponse.json();
+
     const content = result.choices?.[0]?.message?.content;
 
     let extracted: any;
@@ -173,16 +169,18 @@ For tariff_zones:
     try {
       extracted = JSON.parse(content || "{}");
     } catch {
-      extracted = { raw_response: content };
+      extracted = {
+        raw_response: content,
+      };
     }
 
-    const { data: uploadRecord, error: uploadError } = await supabase
+    const { data: uploadRecord } = await supabase
       .from("invoice_uploads")
       .select("*")
       .eq("file_url", fileUrl)
       .single();
 
-    if (uploadError || !uploadRecord) {
+    if (!uploadRecord) {
       return NextResponse.json({
         extracted,
         warning: "Invoice upload record not found",
@@ -198,8 +196,10 @@ For tariff_zones:
         customer_eik: extracted.EIK || null,
         customer_vat: extracted.VAT_number || null,
         customer_number: extracted.client_number || null,
-        total_consumption_mwh: extracted.total_consumption_MWh || null,
-        energy_price_eur_mwh: extracted.energy_price_EUR_MWh || null,
+        total_consumption_mwh:
+          extracted.total_consumption_MWh || null,
+        energy_price_eur_mwh:
+          extracted.energy_price_EUR_MWh || null,
         extracted_json: extracted,
         extraction_status: "completed",
       })
@@ -211,7 +211,9 @@ For tariff_zones:
       .eq("invoice_id", uploadRecord.id);
 
     if (existingSites && existingSites.length > 0) {
-      const siteIds = existingSites.map((site: any) => site.id);
+      const siteIds = existingSites.map(
+        (site: any) => site.id
+      );
 
       await supabase
         .from("invoice_site_zones")
@@ -226,39 +228,39 @@ For tariff_zones:
 
     if (Array.isArray(extracted.sites)) {
       for (const extractedSite of extracted.sites) {
-        const { data: site, error: siteError } = await supabase
+        const { data: site } = await supabase
           .from("invoice_sites")
           .insert({
             invoice_id: uploadRecord.id,
             itn: extractedSite.itn || null,
             address: extractedSite.address || null,
             site_name: extracted.company_name || null,
-            distribution_operator: extracted.supplier_name || null,
-            consumption_mwh: extractedSite.consumption_MWh || null,
-            energy_price_eur_mwh: extractedSite.energy_price_EUR_MWh || null,
+            distribution_operator:
+              extracted.supplier_name || null,
+            consumption_mwh:
+              extractedSite.consumption_MWh || null,
+            energy_price_eur_mwh:
+              extractedSite.energy_price_EUR_MWh || null,
           })
           .select()
           .single();
 
-        if (siteError || !site) {
-          continue;
-        }
-
-        if (Array.isArray(extractedSite.tariff_zones)) {
+        if (
+          site &&
+          Array.isArray(extractedSite.tariff_zones)
+        ) {
           for (const zone of extractedSite.tariff_zones) {
-            await supabase.from("invoice_site_zones").insert({
-              invoice_site_id: site.id,
-              zone_name: zone.zone_name || null,
-              zone_code: zone.tariff_code || null,
-              consumption_kwh:
-                zone.consumption_kwh ||
-                zone.consumption_KWh ||
-                zone.consumption_kWh ||
-                zone.kwh ||
-                zone.KWh ||
-                zone.consumption ||
-                null,
-            });
+            await supabase
+              .from("invoice_site_zones")
+              .insert({
+                invoice_site_id: site.id,
+                zone_name: zone.zone_name || null,
+                zone_code: zone.tariff_code || null,
+                consumption_kwh:
+                  zone.consumption_kwh ||
+                  zone.consumption ||
+                  null,
+              });
           }
         }
       }
@@ -267,8 +269,12 @@ For tariff_zones:
     return NextResponse.json({ extracted });
   } catch (error: any) {
     return NextResponse.json(
-      { error: error.message || "Extraction failed" },
-      { status: 500 }
+      {
+        error: error.message || "Extraction failed",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
