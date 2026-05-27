@@ -1,12 +1,56 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 export async function POST(req: Request) {
   try {
     const { fileUrl } = await req.json();
 
     if (!fileUrl) {
+     const { data: uploadRecord } =
+  await supabase
+    .from("invoice_uploads")
+    .select("*")
+    .eq("file_url", fileUrl)
+    .single();
+
+if (uploadRecord) {
+  await supabase
+    .from("invoice_sites")
+    .insert({
+      invoice_upload_id:
+        uploadRecord.id,
+
+      itn_number:
+        extracted.ITN_numbers?.[0] ||
+        null,
+
+      supplier_name:
+        extracted.supplier_name ||
+        null,
+
+      total_consumption_mwh:
+        extracted.total_consumption_MWh ||
+        null,
+
+      capture_price:
+        extracted.capture_price_estimation ||
+        null,
+
+      reporting_period_start:
+        extracted.reporting_period
+          ?.start_date || null,
+
+      reporting_period_end:
+        extracted.reporting_period
+          ?.end_date || null,
+    });
+}
       return NextResponse.json(
         { error: "Missing fileUrl" },
         { status: 400 }
