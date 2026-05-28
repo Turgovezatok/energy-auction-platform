@@ -79,9 +79,9 @@ export default function MyAuctionsPage() {
               />
 
               <Info
-                label="Консумация"
-                value={`${auction.annual_consumption_mwh || "-"} MWh`}
-              />
+  label="Консумация"
+  value={`${auction.quantity_mwh || "-"} MWh`}
+/>
 
               <Info
                 label="Договор"
