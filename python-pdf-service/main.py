@@ -37,15 +37,27 @@ def extract_pdf(request: ExtractRequest):
             pages = []
 
             for page_index, page in enumerate(doc):
-                text = page.get_text("text")
-                pages.append(f"\n\n--- PAGE {page_index + 1} ---\n\n{text}")
+                blocks = page.get_text("blocks")
+
+                text = "\n".join(
+                    block[4]
+                    for block in blocks
+                    if len(block) > 4 and str(block[4]).strip()
+                )
+
+                pages.append(
+                    f"\n\n--- PAGE {page_index + 1} ---\n\n{text}"
+                )
 
             doc.close()
 
             full_text = "\n".join(pages).strip()
 
             if not full_text:
-                raise HTTPException(status_code=422, detail="No text extracted from PDF")
+                raise HTTPException(
+                    status_code=422,
+                    detail="No text extracted from PDF",
+                )
 
             return {
                 "success": True,
