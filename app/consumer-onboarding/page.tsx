@@ -63,8 +63,9 @@ export default function ConsumerOnboardingPage() {
               "application/json",
           },
           body: JSON.stringify({
-            fileUrl,
-          }),
+  fileUrl,
+  invoiceId: insertedInvoice.id,
+}),
         }
       );
 
