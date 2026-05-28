@@ -11,6 +11,7 @@ export default function ConfirmAuctionPage() {
   const [phone, setPhone] = useState("");
   const [deliveryStartDate, setDeliveryStartDate] = useState("");
   const [email, setEmail] = useState("");
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -18,18 +19,25 @@ export default function ConfirmAuctionPage() {
       const invoiceId = params.get("invoiceId");
       const emailParam = params.get("email");
 
-      if (emailParam) setEmail(emailParam);
+      if (emailParam) {
+        setEmail(emailParam);
+      }
 
       if (!invoiceId) {
         alert("Липсва invoiceId");
         return;
       }
 
-      const { data: invoiceData } = await supabase
+      const { data: invoiceData, error: invoiceError } = await supabase
         .from("invoice_uploads")
         .select("*")
         .eq("id", invoiceId)
         .single();
+
+      if (invoiceError || !invoiceData) {
+        alert("Не успяхме да заредим фактурата.");
+        return;
+      }
 
       const { data: siteData } = await supabase
         .from("invoice_sites")
@@ -52,25 +60,89 @@ export default function ConfirmAuctionPage() {
   }
 
   const monthlyMwh =
-    invoice.total_consumption_mwh ||
+    Number(invoice.total_consumption_mwh || 0) ||
     sites.reduce((sum, site) => sum + Number(site.consumption_mwh || 0), 0);
 
   const monthlyKwh = monthlyMwh * 1000;
   const estimatedContractKwh = monthlyKwh * months;
+  const estimatedContractMwh = estimatedContractKwh / 1000;
 
-  function createAuction() {
+  async function createAuction() {
     if (!contactName || !phone || !deliveryStartDate) {
       alert("Попълнете лице за контакт, телефон и начална дата.");
       return;
     }
 
-    alert(
-      "Търгът е готов за създаване ✅\n\n" +
-        `Фирма: ${invoice.customer_name}\n` +
-        `ЕИК: ${invoice.customer_eik}\n` +
-        `Период: ${months} месеца\n` +
-        `Очаквано количество: ${estimatedContractKwh.toFixed(0)} kWh`
-    );
+    if (!invoice?.id) {
+      alert("Липсва фактура.");
+      return;
+    }
+
+    if (!estimatedContractKwh || estimatedContractKwh <= 0) {
+      alert("Липсва потребление. Проверете извлечените данни.");
+      return;
+    }
+
+    setCreating(true);
+
+    try {
+      const auctionNumber =
+        "CONS-" +
+        new Date().toISOString().slice(0, 7).replace("-", "") +
+        "-" +
+        Math.floor(100000 + Math.random() * 900000);
+
+      const offerDeadline = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+
+      const { error } = await supabase.from("auctions").insert({
+        board_type: "buy",
+        title: `Търг за доставка - ${
+          invoice.customer_name || "потребител"
+        }`,
+        sector: "Електроенергия",
+        activity_type: "consumer",
+        delivery_start: deliveryStartDate,
+        offer_deadline: offerDeadline,
+        duration_months: months,
+        annual_consumption: Math.round(estimatedContractKwh),
+        quantity_mwh: Number(estimatedContractMwh.toFixed(3)),
+        has_invoice: true,
+        has_pv: false,
+        pv_capacity: null,
+        has_surplus: false,
+        surplus_mwh: null,
+        accepts_fixed: true,
+        accepts_day_ahead: true,
+        accepts_hybrid: true,
+        accepts_battery: false,
+        network_component: true,
+        contract_type: "open",
+        preferred_price: null,
+        notes: `Лице за контакт: ${contactName}; Телефон: ${phone}; Имейл: ${email}; Източник: фактура ${invoice.invoice_number || ""}`,
+        status: "active",
+        customer_type: "customer",
+        auction_number: auctionNumber,
+        source_invoice_id: invoice.id,
+        current_supplier: invoice.supplier_name || null,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      alert("Търгът е създаден успешно ✅");
+
+      window.location.href = "/my-auctions";
+    } catch (error) {
+      alert(
+        "Грешка при създаване на търг:\n\n" +
+          (error instanceof Error ? error.message : String(error))
+      );
+    }
+
+    setCreating(false);
   }
 
   return (
@@ -101,10 +173,14 @@ export default function ConfirmAuctionPage() {
         <section style={sectionStyle}>
           <h2>Обекти / ИТН</h2>
 
+          {sites.length === 0 && (
+            <p style={mutedStyle}>Няма извлечени обекти.</p>
+          )}
+
           {sites.map((site) => (
             <div key={site.id} style={siteStyle}>
-              <strong>ИТН: {site.itn}</strong>
-              <div>{site.address}</div>
+              <strong>ИТН: {site.itn || "—"}</strong>
+              <div>{site.address || "Адрес: —"}</div>
               <div>
                 Консумация: {Number(site.consumption_mwh || 0).toFixed(3)} MWh
               </div>
@@ -175,8 +251,15 @@ export default function ConfirmAuctionPage() {
           </div>
         </section>
 
-        <button onClick={createAuction} style={submitButtonStyle}>
-          Създай търг
+        <button
+          onClick={createAuction}
+          disabled={creating}
+          style={{
+            ...submitButtonStyle,
+            opacity: creating ? 0.7 : 1,
+          }}
+        >
+          {creating ? "Създаваме търг..." : "Създай търг"}
         </button>
       </div>
     </main>
