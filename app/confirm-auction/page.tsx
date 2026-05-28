@@ -17,6 +17,10 @@ export default function ConfirmAuctionPage() {
   const [acceptsDayAhead, setAcceptsDayAhead] = useState(true);
   const [acceptsHybrid, setAcceptsHybrid] = useState(true);
 
+  const [includeNetworkComponent, setIncludeNetworkComponent] = useState(true);
+  const [hasBattery, setHasBattery] = useState(false);
+  const [batteryCapacityKwh, setBatteryCapacityKwh] = useState("");
+
   useEffect(() => {
     async function loadData() {
       const params = new URLSearchParams(window.location.search);
@@ -80,6 +84,11 @@ export default function ConfirmAuctionPage() {
       return;
     }
 
+    if (hasBattery && !batteryCapacityKwh) {
+      alert("Моля въведете капацитет на батерията в kWh.");
+      return;
+    }
+
     if (!invoice?.id) {
       alert("Липсва фактура.");
       return;
@@ -125,13 +134,19 @@ export default function ConfirmAuctionPage() {
         pv_capacity: null,
         has_surplus: false,
         surplus_mwh: null,
-        network_component: true,
+        network_component: includeNetworkComponent,
+        has_battery: hasBattery,
+        battery_capacity_kwh: hasBattery ? Number(batteryCapacityKwh) : null,
         contract_type: "open",
         preferred_price: null,
         accepts_fixed: acceptsFixed,
         accepts_day_ahead: acceptsDayAhead,
         accepts_hybrid: acceptsHybrid,
-        notes: `Лице за контакт: ${contactName}; Телефон: ${phone}; Имейл: ${email}; Ценови модели: ${pricingModels}; Източник: фактура ${invoice.invoice_number || ""}`,
+        notes: `Лице за контакт: ${contactName}; Телефон: ${phone}; Имейл: ${email}; Ценови модели: ${pricingModels}; Мрежови компоненти: ${
+          includeNetworkComponent ? "да" : "не"
+        }; Батерия: ${
+          hasBattery ? `${batteryCapacityKwh} kWh` : "няма"
+        }; Източник: фактура ${invoice.invoice_number || ""}`,
         status: "active",
         customer_type: "customer",
         auction_number: auctionNumber,
@@ -171,14 +186,19 @@ export default function ConfirmAuctionPage() {
             <Info label="Доставчик" value={invoice.supplier_name} />
             <Info label="Фактура №" value={invoice.invoice_number} />
             <Info label="Период" value={invoice.reporting_period} />
-            <Info label="Месечно потребление" value={`${monthlyKwh.toFixed(0)} kWh`} />
+            <Info
+              label="Месечно потребление"
+              value={`${monthlyKwh.toFixed(0)} kWh`}
+            />
           </div>
         </section>
 
         <section style={sectionStyle}>
           <h2>Обекти / ИТН</h2>
 
-          {sites.length === 0 && <p style={mutedStyle}>Няма извлечени обекти.</p>}
+          {sites.length === 0 && (
+            <p style={mutedStyle}>Няма извлечени обекти.</p>
+          )}
 
           {sites.map((site) => (
             <div key={site.id} style={siteStyle}>
@@ -288,12 +308,54 @@ export default function ConfirmAuctionPage() {
               </span>
             </label>
           </div>
+        </section>
+
+        <section style={sectionStyle}>
+          <h2>Мрежови компоненти и батерия</h2>
+
+          <div style={pricingBoxStyle}>
+            <label style={checkboxLabelStyle}>
+              <input
+                type="checkbox"
+                checked={includeNetworkComponent}
+                onChange={(e) => setIncludeNetworkComponent(e.target.checked)}
+              />
+              <span>
+                <strong>Включване на мрежови компоненти</strong>
+                <br />
+                Искам търговците да включат мрежовите компоненти в офертата.
+              </span>
+            </label>
+
+            <label style={checkboxLabelStyle}>
+              <input
+                type="checkbox"
+                checked={hasBattery}
+                onChange={(e) => setHasBattery(e.target.checked)}
+              />
+              <span>
+                <strong>Имам батерия</strong>
+                <br />
+                Посочете, ако обектът разполага с батерия.
+              </span>
+            </label>
+
+            {hasBattery && (
+              <input
+                placeholder="Капацитет на батерията, kWh"
+                value={batteryCapacityKwh}
+                onChange={(e) => setBatteryCapacityKwh(e.target.value)}
+                style={inputStyle}
+              />
+            )}
+          </div>
 
           <div style={summaryStyle}>
             <div>Месечно количество: {monthlyKwh.toFixed(0)} kWh</div>
             <div>Период: {months} месеца</div>
             <strong>
-              Очаквано количество за търга: {estimatedContractKwh.toFixed(0)} kWh
+              Очаквано количество за търга:{" "}
+              {estimatedContractKwh.toFixed(0)} kWh
             </strong>
           </div>
         </section>
