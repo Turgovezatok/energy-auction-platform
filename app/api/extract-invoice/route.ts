@@ -120,7 +120,6 @@ ${trimmedText}
 
 Extract:
 - invoice_number
-- invoice_date
 - company_name
 - EIK
 - VAT_number
@@ -136,7 +135,6 @@ Return exactly this JSON structure:
 
 {
   "invoice_number": null,
-  "invoice_date": null,
   "company_name": null,
   "EIK": null,
   "VAT_number": null,
