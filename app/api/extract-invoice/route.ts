@@ -34,8 +34,7 @@ export async function POST(
   req: Request
 ) {
   try {
-    const { fileUrl } =
-      await req.json();
+    const { fileUrl, invoiceId } = await req.json();
 
     if (!fileUrl) {
       return NextResponse.json(
