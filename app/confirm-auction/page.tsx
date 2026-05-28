@@ -106,7 +106,6 @@ export default function ConfirmAuctionPage() {
         delivery_start: deliveryStartDate,
         offer_deadline: offerDeadline,
         duration_months: months,
-        annual_co: Math.round(estimatedContractKwh),
         quantity_mwh: Number(estimatedContractMwh.toFixed(3)),
         has_invoice: true,
         has_pv: false,
