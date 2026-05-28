@@ -138,7 +138,6 @@ export default function ConfirmAuctionPage() {
         has_battery: hasBattery,
         battery_capacity_kwh: hasBattery ? Number(batteryCapacityKwh) : null,
         contract_type: "open",
-        preferred_price: null,
         accepts_fixed: acceptsFixed,
         accepts_day_ahead: acceptsDayAhead,
         accepts_hybrid: acceptsHybrid,
