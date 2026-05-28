@@ -13,15 +13,17 @@ export default function ConfirmAuctionPage() {
   const [email, setEmail] = useState("");
   const [creating, setCreating] = useState(false);
 
+  const [acceptsFixed, setAcceptsFixed] = useState(true);
+  const [acceptsDayAhead, setAcceptsDayAhead] = useState(true);
+  const [acceptsHybrid, setAcceptsHybrid] = useState(true);
+
   useEffect(() => {
     async function loadData() {
       const params = new URLSearchParams(window.location.search);
       const invoiceId = params.get("invoiceId");
       const emailParam = params.get("email");
 
-      if (emailParam) {
-        setEmail(emailParam);
-      }
+      if (emailParam) setEmail(emailParam);
 
       if (!invoiceId) {
         alert("Липсва invoiceId");
@@ -73,6 +75,11 @@ export default function ConfirmAuctionPage() {
       return;
     }
 
+    if (!acceptsFixed && !acceptsDayAhead && !acceptsHybrid) {
+      alert("Изберете поне един тип ценово предложение.");
+      return;
+    }
+
     if (!invoice?.id) {
       alert("Липсва фактура.");
       return;
@@ -96,11 +103,17 @@ export default function ConfirmAuctionPage() {
         .toISOString()
         .slice(0, 10);
 
+      const pricingModels = [
+        acceptsFixed ? "Фиксирана цена" : null,
+        acceptsDayAhead ? "Фиксирана добавка към борсова цена" : null,
+        acceptsHybrid ? "Фиксирана добавка + процент" : null,
+      ]
+        .filter(Boolean)
+        .join(", ");
+
       const { error } = await supabase.from("auctions").insert({
         board_type: "buy",
-        title: `Търг за доставка - ${
-          invoice.customer_name || "потребител"
-        }`,
+        title: `Търг за доставка - ${invoice.customer_name || "потребител"}`,
         sector: "Електроенергия",
         activity_type: "consumer",
         delivery_start: deliveryStartDate,
@@ -115,7 +128,10 @@ export default function ConfirmAuctionPage() {
         network_component: true,
         contract_type: "open",
         preferred_price: null,
-        notes: `Лице за контакт: ${contactName}; Телефон: ${phone}; Имейл: ${email}; Източник: фактура ${invoice.invoice_number || ""}`,
+        accepts_fixed: acceptsFixed,
+        accepts_day_ahead: acceptsDayAhead,
+        accepts_hybrid: acceptsHybrid,
+        notes: `Лице за контакт: ${contactName}; Телефон: ${phone}; Имейл: ${email}; Ценови модели: ${pricingModels}; Източник: фактура ${invoice.invoice_number || ""}`,
         status: "active",
         customer_type: "customer",
         auction_number: auctionNumber,
@@ -123,12 +139,9 @@ export default function ConfirmAuctionPage() {
         current_supplier: invoice.supplier_name || null,
       });
 
-      if (error) {
-        throw new Error(error.message);
-      }
+      if (error) throw new Error(error.message);
 
       alert("Търгът е създаден успешно ✅");
-
       window.location.href = "/my-auctions";
     } catch (error) {
       alert(
@@ -158,19 +171,14 @@ export default function ConfirmAuctionPage() {
             <Info label="Доставчик" value={invoice.supplier_name} />
             <Info label="Фактура №" value={invoice.invoice_number} />
             <Info label="Период" value={invoice.reporting_period} />
-            <Info
-              label="Месечно потребление"
-              value={`${monthlyKwh.toFixed(0)} kWh`}
-            />
+            <Info label="Месечно потребление" value={`${monthlyKwh.toFixed(0)} kWh`} />
           </div>
         </section>
 
         <section style={sectionStyle}>
           <h2>Обекти / ИТН</h2>
 
-          {sites.length === 0 && (
-            <p style={mutedStyle}>Няма извлечени обекти.</p>
-          )}
+          {sites.length === 0 && <p style={mutedStyle}>Няма извлечени обекти.</p>}
 
           {sites.map((site) => (
             <div key={site.id} style={siteStyle}>
@@ -235,13 +243,57 @@ export default function ConfirmAuctionPage() {
               </button>
             ))}
           </div>
+        </section>
+
+        <section style={sectionStyle}>
+          <h2>Какъв тип цена търсите?</h2>
+
+          <div style={pricingBoxStyle}>
+            <label style={checkboxLabelStyle}>
+              <input
+                type="checkbox"
+                checked={acceptsFixed}
+                onChange={(e) => setAcceptsFixed(e.target.checked)}
+              />
+              <span>
+                <strong>Фиксирана цена</strong>
+                <br />
+                Крайна цена за MWh за целия период.
+              </span>
+            </label>
+
+            <label style={checkboxLabelStyle}>
+              <input
+                type="checkbox"
+                checked={acceptsDayAhead}
+                onChange={(e) => setAcceptsDayAhead(e.target.checked)}
+              />
+              <span>
+                <strong>Фиксирана добавка към борсова цена</strong>
+                <br />
+                Борсова цена + фиксирана надбавка.
+              </span>
+            </label>
+
+            <label style={checkboxLabelStyle}>
+              <input
+                type="checkbox"
+                checked={acceptsHybrid}
+                onChange={(e) => setAcceptsHybrid(e.target.checked)}
+              />
+              <span>
+                <strong>Фиксирана добавка + процент</strong>
+                <br />
+                Борсова цена + фиксирана надбавка + процент.
+              </span>
+            </label>
+          </div>
 
           <div style={summaryStyle}>
             <div>Месечно количество: {monthlyKwh.toFixed(0)} kWh</div>
             <div>Период: {months} месеца</div>
             <strong>
-              Очаквано количество за търга:{" "}
-              {estimatedContractKwh.toFixed(0)} kWh
+              Очаквано количество за търга: {estimatedContractKwh.toFixed(0)} kWh
             </strong>
           </div>
         </section>
@@ -343,6 +395,23 @@ const periodButtonStyle: React.CSSProperties = {
   border: "1px solid #cbd5e1",
   cursor: "pointer",
   fontWeight: 700,
+};
+
+const pricingBoxStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 14,
+  marginTop: 16,
+};
+
+const checkboxLabelStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 12,
+  alignItems: "flex-start",
+  padding: 16,
+  borderRadius: 16,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  cursor: "pointer",
 };
 
 const summaryStyle: React.CSSProperties = {
