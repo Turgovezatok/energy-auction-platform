@@ -189,10 +189,10 @@ export default function ConsumerOnboardingPage() {
 
             <div style={exampleBoxStyle}>
               <div>
-                <strong>Обект ИТН № 1665820</strong>
+              <td style={td}>012345678</td>
               </div>
-              <div>Място на потребление: ГР. ПЛОВДИВ УЛ. САМАРА 13</div>
-              <div>Наименование: ЕВРО - АЛИАНС ООД</div>
+              <div>Място на потребление: ГР. XXXXX, УЛ. XXXXX № XX</div>
+<div>Наименование: ПРИМЕРНА ФИРМА ООД</div>
               <div>Отчетен период: 01.02.2025 - 28.02.2025</div>
 
               <br />
