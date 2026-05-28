@@ -116,7 +116,6 @@ export default function ConfirmAuctionPage() {
         accepts_fixed: true,
         accepts_day_ahead: true,
         accepts_hybrid: true,
-        accepts_battery: false,
         network_component: true,
         contract_type: "open",
         preferred_price: null,
