@@ -27,11 +27,16 @@ function extractInvoicePeriod(reportingPeriod: any): {
   }
 
   const text = String(reportingPeriod);
+  const regex = /(\d{1,2})[.\-/](\d{1,2})[.\-/](20\d{2})/g;
 
-  const matches = [...text.matchAll(/(\d{1,2})[.\-/](\d{1,2})[.\-/](20\d{2})/g)];
+  let match: RegExpExecArray | null;
+  let lastDate: RegExpExecArray | null = null;
 
-  if (matches.length > 0) {
-    const lastDate = matches[matches.length - 1];
+  while ((match = regex.exec(text)) !== null) {
+    lastDate = match;
+  }
+
+  if (lastDate) {
     return {
       month: Number(lastDate[2]),
       year: Number(lastDate[3]),
@@ -45,6 +50,7 @@ function extractInvoicePeriod(reportingPeriod: any): {
     month: monthMatch ? Number(monthMatch[1]) : null,
     year: yearMatch ? Number(yearMatch[0]) : null,
   };
+}
 }
 
 export async function POST(req: Request) {
