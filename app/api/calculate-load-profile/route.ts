@@ -14,7 +14,10 @@ function normalizeZone(zoneName: string | null, zoneCode: string | null) {
   if (
     value.includes("днев") ||
     value.includes("day") ||
-    value.includes("д ")
+    value.includes("д ") ||
+    value.includes("1.8.1") ||
+    value.includes("t1") ||
+    value.includes("т1")
   ) {
     return "day";
   }
@@ -22,16 +25,26 @@ function normalizeZone(zoneName: string | null, zoneCode: string | null) {
   if (
     value.includes("нощ") ||
     value.includes("night") ||
-    value.includes("н ")
+    value.includes("н ") ||
+    value.includes("1.8.2") ||
+    value.includes("t2") ||
+    value.includes("т2")
   ) {
     return "night";
   }
 
-  if (value.includes("peak") || value.includes("върх")) {
+  if (
+    value.includes("peak") ||
+    value.includes("върх") ||
+    value.includes("в ")
+  ) {
     return "peak";
   }
 
-  if (value.includes("off") || value.includes("невърх")) {
+  if (
+    value.includes("off") ||
+    value.includes("невърх")
+  ) {
     return "offpeak";
   }
 
@@ -74,9 +87,7 @@ export async function POST(req: Request) {
       .select("id, consumption_mwh")
       .eq("invoice_id", invoiceId);
 
-    if (sitesError) {
-      throw new Error(sitesError.message);
-    }
+    if (sitesError) throw new Error(sitesError.message);
 
     const siteIds = (sites || []).map((site: any) => site.id);
 
@@ -88,9 +99,7 @@ export async function POST(req: Request) {
         .select("*")
         .in("invoice_site_id", siteIds);
 
-      if (zonesError) {
-        throw new Error(zonesError.message);
-      }
+      if (zonesError) throw new Error(zonesError.message);
 
       zones = zoneData || [];
     }
@@ -214,9 +223,7 @@ export async function POST(req: Request) {
       .select()
       .single();
 
-    if (insertError) {
-      throw new Error(insertError.message);
-    }
+    if (insertError) throw new Error(insertError.message);
 
     return NextResponse.json({
       success: true,
