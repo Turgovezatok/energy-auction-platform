@@ -1,5 +1,6 @@
 "use client";
-
+const [worksSaturday, setWorksSaturday] = useState(true);
+const [worksSunday, setWorksSunday] = useState(true);
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
