@@ -53,9 +53,7 @@ export default function AuctionDetailsPage({
 
         const response = await fetch("/api/calculate-capture", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             invoiceId: auctionData.source_invoice_id,
           }),
@@ -93,6 +91,18 @@ export default function AuctionDetailsPage({
     );
   }
 
+  const paidPrice = Number(invoice?.paid_energy_price || 0);
+  const expectedCapture = Number(capture?.expected_capture_price_eur_mwh || 0);
+  const supplierAlpha =
+    paidPrice && expectedCapture ? paidPrice - expectedCapture : null;
+  const supplierAlphaPercent =
+    supplierAlpha !== null && expectedCapture
+      ? (supplierAlpha / expectedCapture) * 100
+      : null;
+
+  const currency =
+    invoice?.paid_energy_currency || capture?.currency || "";
+
   return (
     <main style={pageStyle}>
       <div style={containerStyle}>
@@ -108,9 +118,7 @@ export default function AuctionDetailsPage({
               {auction.title || "Търг за електроенергия"}
             </h1>
 
-            <p style={mutedStyle}>
-              Номер: {auction.auction_number || "—"}
-            </p>
+            <p style={mutedStyle}>Номер: {auction.auction_number || "—"}</p>
           </div>
 
           <div style={heroMetricStyle}>
@@ -129,11 +137,7 @@ export default function AuctionDetailsPage({
           <Info label="Батерия" value={auction.has_battery ? "Да" : "Не"} />
           <Info
             label="Капацитет батерия"
-            value={
-              auction.has_battery
-                ? `${auction.battery_capacity_kwh || "—"} kWh`
-                : "—"
-            }
+            value={auction.has_battery ? `${auction.battery_capacity_kwh || "—"} kWh` : "—"}
           />
         </section>
 
@@ -149,6 +153,30 @@ export default function AuctionDetailsPage({
               <Info
                 label="Месечно потребление"
                 value={`${invoice.total_consumption_mwh || "—"} MWh`}
+              />
+              <Info
+                label="Платена цена енергия"
+                value={
+                  invoice.paid_energy_price
+                    ? `${invoice.paid_energy_price} ${currency}/MWh`
+                    : "—"
+                }
+              />
+              <Info
+                label="Платена стойност енергия"
+                value={
+                  invoice.paid_energy_total
+                    ? `${invoice.paid_energy_total} ${currency}`
+                    : "—"
+                }
+              />
+              <Info
+                label="Общо активна енергия"
+                value={
+                  invoice.total_energy_kwh
+                    ? `${invoice.total_energy_kwh} kWh`
+                    : "—"
+                }
               />
             </div>
           </section>
@@ -185,14 +213,8 @@ export default function AuctionDetailsPage({
             </div>
 
             <div style={barBoxStyle}>
-              <ProfileBar
-                label="Дневна консумация"
-                value={Number(profile.day_share || 0)}
-              />
-              <ProfileBar
-                label="Нощна консумация"
-                value={Number(profile.night_share || 0)}
-              />
+              <ProfileBar label="Дневна консумация" value={Number(profile.day_share || 0)} />
+              <ProfileBar label="Нощна консумация" value={Number(profile.night_share || 0)} />
             </div>
           </section>
         )}
@@ -202,45 +224,68 @@ export default function AuctionDetailsPage({
             <h2>Capture & Risk Analysis</h2>
 
             <div style={gridStyle}>
-              <Info
-                label="Пазарен месец"
-                value={`${capture.month}/${capture.year}`}
-              />
-              <Info
-                label="Base price"
-                value={`${capture.market_base_price_eur_mwh} /MWh`}
-              />
-              <Info
-                label="Peak price"
-                value={`${capture.market_peak_price_eur_mwh} /MWh`}
-              />
-              <Info
-                label="Off-peak price"
-                value={`${capture.market_offpeak_price_eur_mwh} /MWh`}
-              />
-              <Info
-                label="Expected capture"
-                value={`${capture.expected_capture_price_eur_mwh} /MWh`}
-              />
-              <Info
-                label="Estimated energy cost"
-                value={`${capture.estimated_energy_cost_eur}`}
-              />
-              <Info
-                label="Risk score"
-                value={`${capture.risk_score}/100`}
-              />
-              <Info
-                label="Recommended model"
-                value={capture.recommended_pricing_model}
-              />
+              <Info label="Пазарен месец" value={`${capture.month}/${capture.year}`} />
+              <Info label="Base price" value={`${capture.market_base_price_eur_mwh} ${currency}/MWh`} />
+              <Info label="Peak price" value={`${capture.market_peak_price_eur_mwh} ${currency}/MWh`} />
+              <Info label="Off-peak price" value={`${capture.market_offpeak_price_eur_mwh} ${currency}/MWh`} />
+              <Info label="Expected capture" value={`${capture.expected_capture_price_eur_mwh} ${currency}/MWh`} />
+              <Info label="Estimated market energy cost" value={`${capture.estimated_energy_cost_eur} ${currency}`} />
+              <Info label="Risk score" value={`${capture.risk_score}/100`} />
+              <Info label="Recommended model" value={capture.recommended_pricing_model} />
             </div>
+
+            {invoice && (
+              <div style={benchmarkCardStyle}>
+                <h3>Paid Price vs Expected Capture</h3>
+
+                <div style={gridStyle}>
+                  <Info
+                    label="Реално платена цена"
+                    value={
+                      paidPrice
+                        ? `${paidPrice.toFixed(2)} ${currency}/MWh`
+                        : "—"
+                    }
+                  />
+                  <Info
+                    label="Expected capture"
+                    value={
+                      expectedCapture
+                        ? `${expectedCapture.toFixed(2)} ${currency}/MWh`
+                        : "—"
+                    }
+                  />
+                  <Info
+                    label="Supplier Alpha"
+                    value={
+                      supplierAlpha !== null
+                        ? `${supplierAlpha.toFixed(2)} ${currency}/MWh`
+                        : "—"
+                    }
+                  />
+                  <Info
+                    label="Разлика %"
+                    value={
+                      supplierAlphaPercent !== null
+                        ? `${supplierAlphaPercent.toFixed(1)}%`
+                        : "—"
+                    }
+                  />
+                </div>
+
+                <p style={mutedStyle}>
+                  Ако Supplier Alpha е отрицателен, клиентът е платил под
+                  профилната борсова стойност. Ако е положителен, клиентът е
+                  платил над очаквания capture за своя товар.
+                </p>
+              </div>
+            )}
 
             <div style={riskSummaryStyle}>
               <strong>Risk level: {capture.risk_level}</strong>
               <p>
-                Профил: {capture.profile_type}. Данните са базирани на
-                тарифна структура от фактурата и исторически пазарни цени.
+                Профил: {capture.profile_type}. Данните са базирани на тарифна
+                структура от фактурата и исторически пазарни цени.
               </p>
             </div>
           </section>
@@ -283,12 +328,7 @@ function ProfileBar({ label, value }: { label: string; value: number }) {
       </div>
 
       <div style={barTrackStyle}>
-        <div
-          style={{
-            ...barFillStyle,
-            width: `${percent}%`,
-          }}
-        />
+        <div style={{ ...barFillStyle, width: `${percent}%` }} />
       </div>
     </div>
   );
@@ -362,6 +402,14 @@ const riskCardStyle: React.CSSProperties = {
   ...cardStyle,
   border: "1px solid #bbf7d0",
   background: "#f0fdf4",
+};
+
+const benchmarkCardStyle: React.CSSProperties = {
+  marginTop: 24,
+  padding: 22,
+  borderRadius: 20,
+  background: "white",
+  border: "1px solid #86efac",
 };
 
 const infoBoxStyle: React.CSSProperties = {
