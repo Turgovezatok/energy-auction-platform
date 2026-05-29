@@ -9,18 +9,42 @@ const supabase = createClient(
 );
 
 function normalizeNumber(value: any): number | null {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-
-  if (typeof value === "number") {
-    return value;
-  }
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") return value;
 
   const cleaned = String(value).replace(/\s/g, "").replace(",", ".");
   const parsed = Number(cleaned);
 
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function extractInvoicePeriod(reportingPeriod: any): {
+  month: number | null;
+  year: number | null;
+} {
+  if (!reportingPeriod) {
+    return { month: null, year: null };
+  }
+
+  const text = String(reportingPeriod);
+
+  const matches = [...text.matchAll(/(\d{1,2})[.\-/](\d{1,2})[.\-/](20\d{2})/g)];
+
+  if (matches.length > 0) {
+    const lastDate = matches[matches.length - 1];
+    return {
+      month: Number(lastDate[2]),
+      year: Number(lastDate[3]),
+    };
+  }
+
+  const yearMatch = text.match(/20\d{2}/);
+  const monthMatch = text.match(/\b(0?[1-9]|1[0-2])\b/);
+
+  return {
+    month: monthMatch ? Number(monthMatch[1]) : null,
+    year: yearMatch ? Number(yearMatch[0]) : null,
+  };
 }
 
 export async function POST(req: Request) {
@@ -155,6 +179,8 @@ Return exactly this JSON structure:
       extracted = { raw_response: content };
     }
 
+    const period = extractInvoicePeriod(extracted.reporting_period);
+
     const { data: uploadRecord, error: uploadError } = await supabase
       .from("invoice_uploads")
       .select("*")
@@ -179,6 +205,8 @@ Return exactly this JSON structure:
         customer_vat: extracted.VAT_number || null,
         customer_number: extracted.client_number || null,
         reporting_period: extracted.reporting_period || null,
+        invoice_period_month: period.month,
+        invoice_period_year: period.year,
         total_consumption_mwh: normalizeNumber(extracted.total_consumption_MWh),
         energy_price_eur_mwh: normalizeNumber(extracted.energy_price_EUR_MWh),
         extracted_json: extracted,
@@ -226,9 +254,7 @@ Return exactly this JSON structure:
           .select()
           .single();
 
-        if (siteError || !site) {
-          continue;
-        }
+        if (siteError || !site) continue;
 
         if (Array.isArray(extractedSite.tariff_zones)) {
           for (const zone of extractedSite.tariff_zones) {
@@ -274,6 +300,7 @@ Return exactly this JSON structure:
     return NextResponse.json({
       success: true,
       extracted,
+      invoicePeriod: period,
       loadProfile,
     });
   } catch (error: any) {
