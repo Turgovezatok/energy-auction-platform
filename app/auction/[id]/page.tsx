@@ -92,30 +92,29 @@ export default function AuctionDetailsPage({
   }
 
   function normalizePaidPriceToMwh(price: any) {
-  const value = Number(price || 0);
+    const value = Number(price || 0);
 
-  if (!value) return 0;
+    if (!value) return 0;
 
-  // Ако цената е под 10, почти сигурно е цена за kWh,
-  // например 0.33139 лв/kWh = 331.39 лв/MWh
-  if (value < 10) {
-    return value * 1000;
+    if (value < 10) {
+      return value * 1000;
+    }
+
+    return value;
   }
 
-  return value;
-}
-
-const paidPrice = normalizePaidPriceToMwh(invoice?.paid_energy_price);
+  const paidPrice = normalizePaidPriceToMwh(invoice?.paid_energy_price);
   const expectedCapture = Number(capture?.expected_capture_price_eur_mwh || 0);
+
   const supplierAlpha =
     paidPrice && expectedCapture ? paidPrice - expectedCapture : null;
+
   const supplierAlphaPercent =
     supplierAlpha !== null && expectedCapture
       ? (supplierAlpha / expectedCapture) * 100
       : null;
 
-  const currency =
-    invoice?.paid_energy_currency || capture?.currency || "";
+  const currency = invoice?.paid_energy_currency || capture?.currency || "";
 
   return (
     <main style={pageStyle}>
@@ -142,16 +141,29 @@ const paidPrice = normalizePaidPriceToMwh(invoice?.paid_energy_price);
         </section>
 
         <section style={gridStyle}>
-          <Info label="Тип" value={auction.board_type === "buy" ? "Покупка" : "Продажба"} />
-          <Info label="Период" value={`${auction.duration_months || "—"} месеца`} />
+          <Info
+            label="Тип"
+            value={auction.board_type === "buy" ? "Покупка" : "Продажба"}
+          />
+          <Info
+            label="Период"
+            value={`${auction.duration_months || "—"} месеца`}
+          />
           <Info label="Начало доставка" value={auction.delivery_start || "—"} />
           <Info label="Краен срок оферти" value={auction.offer_deadline || "—"} />
           <Info label="Текущ доставчик" value={auction.current_supplier || "—"} />
-          <Info label="Мрежови компоненти" value={auction.network_component ? "Да" : "Не"} />
+          <Info
+            label="Мрежови компоненти"
+            value={auction.network_component ? "Да" : "Не"}
+          />
           <Info label="Батерия" value={auction.has_battery ? "Да" : "Не"} />
           <Info
             label="Капацитет батерия"
-            value={auction.has_battery ? `${auction.battery_capacity_kwh || "—"} kWh` : "—"}
+            value={
+              auction.has_battery
+                ? `${auction.battery_capacity_kwh || "—"} kWh`
+                : "—"
+            }
           />
         </section>
 
@@ -171,8 +183,8 @@ const paidPrice = normalizePaidPriceToMwh(invoice?.paid_energy_price);
               <Info
                 label="Платена цена енергия"
                 value={
-                  invoice.paid_energy_price
-                    ? `${invoice.paid_energy_price} ${currency}/MWh`
+                  paidPrice
+                    ? `${paidPrice.toFixed(2)} ${currency}/MWh`
                     : "—"
                 }
               />
@@ -226,9 +238,50 @@ const paidPrice = normalizePaidPriceToMwh(invoice?.paid_energy_price);
               <Info label="Риск" value={profile.risk_level || "—"} />
             </div>
 
-            <div style={barBoxStyle}>
-              <ProfileBar label="Дневна консумация" value={Number(profile.day_share || 0)} />
-              <ProfileBar label="Нощна консумация" value={Number(profile.night_share || 0)} />
+            <div style={profileVisualStyle}>
+              <h3>Относителен дял на потреблението</h3>
+
+              <div style={stackedBarStyle}>
+                <div
+                  style={{
+                    ...dayBarStyle,
+                    width: `${Number(profile.day_share || 0) * 100}%`,
+                  }}
+                >
+                  Дневна {(Number(profile.day_share || 0) * 100).toFixed(1)}%
+                </div>
+
+                <div
+                  style={{
+                    ...nightBarStyle,
+                    width: `${Number(profile.night_share || 0) * 100}%`,
+                  }}
+                >
+                  Нощна {(Number(profile.night_share || 0) * 100).toFixed(1)}%
+                </div>
+              </div>
+
+              <div style={barBoxStyle}>
+                <LoadBar
+                  label="Среден дневен товар"
+                  value={Number(profile.avg_day_load_kw || 0)}
+                  maxValue={Math.max(
+                    Number(profile.avg_day_load_kw || 0),
+                    Number(profile.avg_night_load_kw || 0)
+                  )}
+                  unit="kW"
+                />
+
+                <LoadBar
+                  label="Среден нощен товар"
+                  value={Number(profile.avg_night_load_kw || 0)}
+                  maxValue={Math.max(
+                    Number(profile.avg_day_load_kw || 0),
+                    Number(profile.avg_night_load_kw || 0)
+                  )}
+                  unit="kW"
+                />
+              </div>
             </div>
           </section>
         )}
@@ -239,11 +292,26 @@ const paidPrice = normalizePaidPriceToMwh(invoice?.paid_energy_price);
 
             <div style={gridStyle}>
               <Info label="Пазарен месец" value={`${capture.month}/${capture.year}`} />
-              <Info label="Base price" value={`${capture.market_base_price_eur_mwh} ${currency}/MWh`} />
-              <Info label="Peak price" value={`${capture.market_peak_price_eur_mwh} ${currency}/MWh`} />
-              <Info label="Off-peak price" value={`${capture.market_offpeak_price_eur_mwh} ${currency}/MWh`} />
-              <Info label="Expected capture" value={`${capture.expected_capture_price_eur_mwh} ${currency}/MWh`} />
-              <Info label="Estimated market energy cost" value={`${capture.estimated_energy_cost_eur} ${currency}`} />
+              <Info
+                label="Base price"
+                value={`${capture.market_base_price_eur_mwh} ${currency}/MWh`}
+              />
+              <Info
+                label="Peak price"
+                value={`${capture.market_peak_price_eur_mwh} ${currency}/MWh`}
+              />
+              <Info
+                label="Off-peak price"
+                value={`${capture.market_offpeak_price_eur_mwh} ${currency}/MWh`}
+              />
+              <Info
+                label="Expected capture"
+                value={`${capture.expected_capture_price_eur_mwh} ${currency}/MWh`}
+              />
+              <Info
+                label="Estimated market energy cost"
+                value={`${capture.estimated_energy_cost_eur} ${currency}`}
+              />
               <Info label="Risk score" value={`${capture.risk_score}/100`} />
               <Info label="Recommended model" value={capture.recommended_pricing_model} />
             </div>
@@ -331,14 +399,27 @@ function Info({ label, value }: { label: string; value: any }) {
   );
 }
 
-function ProfileBar({ label, value }: { label: string; value: number }) {
-  const percent = Math.max(0, Math.min(100, value * 100));
+function LoadBar({
+  label,
+  value,
+  maxValue,
+  unit,
+}: {
+  label: string;
+  value: number;
+  maxValue: number;
+  unit: string;
+}) {
+  const percent =
+    maxValue > 0 ? Math.max(0, Math.min(100, (value / maxValue) * 100)) : 0;
 
   return (
     <div style={{ marginTop: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <span>{label}</span>
-        <strong>{percent.toFixed(1)}%</strong>
+        <strong>
+          {value.toFixed(2)} {unit}
+        </strong>
       </div>
 
       <div style={barTrackStyle}>
@@ -461,6 +542,44 @@ const barFillStyle: React.CSSProperties = {
   height: "100%",
   background: "#059669",
   borderRadius: 999,
+};
+
+const profileVisualStyle: React.CSSProperties = {
+  marginTop: 26,
+  padding: 20,
+  borderRadius: 18,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+};
+
+const stackedBarStyle: React.CSSProperties = {
+  display: "flex",
+  width: "100%",
+  height: 42,
+  borderRadius: 999,
+  overflow: "hidden",
+  marginTop: 14,
+  background: "#e2e8f0",
+};
+
+const dayBarStyle: React.CSSProperties = {
+  background: "#059669",
+  color: "white",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 800,
+  fontSize: 13,
+};
+
+const nightBarStyle: React.CSSProperties = {
+  background: "#2563eb",
+  color: "white",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 800,
+  fontSize: 13,
 };
 
 const riskSummaryStyle: React.CSSProperties = {
