@@ -1,6 +1,5 @@
 "use client";
-const [worksSaturday, setWorksSaturday] = useState(true);
-const [worksSunday, setWorksSunday] = useState(true);
+
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
@@ -21,6 +20,9 @@ export default function ConfirmAuctionPage() {
   const [includeNetworkComponent, setIncludeNetworkComponent] = useState(true);
   const [hasBattery, setHasBattery] = useState(false);
   const [batteryCapacityKwh, setBatteryCapacityKwh] = useState("");
+
+  const [worksSaturday, setWorksSaturday] = useState(true);
+  const [worksSunday, setWorksSunday] = useState(true);
 
   useEffect(() => {
     async function loadData() {
@@ -131,18 +133,33 @@ export default function ConfirmAuctionPage() {
         duration_months: months,
         quantity_mwh: Number(estimatedContractMwh.toFixed(3)),
         has_invoice: true,
+
         network_component: includeNetworkComponent,
+
         has_battery: hasBattery,
-        battery_capacity_kwh: hasBattery ? Number(batteryCapacityKwh) : null,
+        battery_capacity_kwh: hasBattery
+          ? Number(batteryCapacityKwh)
+          : null,
+
+        works_saturday: worksSaturday,
+        works_sunday: worksSunday,
+
         contract_type: "open",
+
         accepts_fixed: acceptsFixed,
         accepts_day_ahead: acceptsDayAhead,
         accepts_hybrid: acceptsHybrid,
+
         notes: `Лице за контакт: ${contactName}; Телефон: ${phone}; Имейл: ${email}; Ценови модели: ${pricingModels}; Мрежови компоненти: ${
           includeNetworkComponent ? "да" : "не"
         }; Батерия: ${
           hasBattery ? `${batteryCapacityKwh} kWh` : "няма"
+        }; Работа събота: ${
+          worksSaturday ? "да" : "не"
+        }; Работа неделя: ${
+          worksSunday ? "да" : "не"
         }; Източник: фактура ${invoice.invoice_number || ""}`,
+
         status: "active",
         customer_type: "customer",
         auction_number: auctionNumber,
@@ -199,9 +216,12 @@ export default function ConfirmAuctionPage() {
           {sites.map((site) => (
             <div key={site.id} style={siteStyle}>
               <strong>ИТН: {site.itn || "—"}</strong>
+
               <div>{site.address || "Адрес: —"}</div>
+
               <div>
-                Консумация: {Number(site.consumption_mwh || 0).toFixed(3)} MWh
+                Консумация:{" "}
+                {Number(site.consumption_mwh || 0).toFixed(3)} MWh
               </div>
             </div>
           ))}
@@ -231,7 +251,9 @@ export default function ConfirmAuctionPage() {
             style={inputStyle}
           />
 
-          <label style={labelStyle}>Начална дата на доставка</label>
+          <label style={labelStyle}>
+            Начална дата на доставка
+          </label>
 
           <input
             type="date"
@@ -271,6 +293,7 @@ export default function ConfirmAuctionPage() {
                 checked={acceptsFixed}
                 onChange={(e) => setAcceptsFixed(e.target.checked)}
               />
+
               <span>
                 <strong>Фиксирана цена</strong>
                 <br />
@@ -284,8 +307,11 @@ export default function ConfirmAuctionPage() {
                 checked={acceptsDayAhead}
                 onChange={(e) => setAcceptsDayAhead(e.target.checked)}
               />
+
               <span>
-                <strong>Фиксирана добавка към борсова цена</strong>
+                <strong>
+                  Фиксирана добавка към борсова цена
+                </strong>
                 <br />
                 Борсова цена + фиксирана надбавка.
               </span>
@@ -297,10 +323,51 @@ export default function ConfirmAuctionPage() {
                 checked={acceptsHybrid}
                 onChange={(e) => setAcceptsHybrid(e.target.checked)}
               />
+
               <span>
-                <strong>Фиксирана добавка + процент</strong>
+                <strong>
+                  Фиксирана добавка + процент
+                </strong>
                 <br />
                 Борсова цена + фиксирана надбавка + процент.
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section style={sectionStyle}>
+          <h2>Работни дни</h2>
+
+          <div style={pricingBoxStyle}>
+            <label style={checkboxLabelStyle}>
+              <input
+                type="checkbox"
+                checked={worksSaturday}
+                onChange={(e) =>
+                  setWorksSaturday(e.target.checked)
+                }
+              />
+
+              <span>
+                <strong>Работим в събота</strong>
+                <br />
+                Обектът има нормално потребление и в събота.
+              </span>
+            </label>
+
+            <label style={checkboxLabelStyle}>
+              <input
+                type="checkbox"
+                checked={worksSunday}
+                onChange={(e) =>
+                  setWorksSunday(e.target.checked)
+                }
+              />
+
+              <span>
+                <strong>Работим в неделя</strong>
+                <br />
+                Обектът има нормално потребление и в неделя.
               </span>
             </label>
           </div>
@@ -314,12 +381,18 @@ export default function ConfirmAuctionPage() {
               <input
                 type="checkbox"
                 checked={includeNetworkComponent}
-                onChange={(e) => setIncludeNetworkComponent(e.target.checked)}
+                onChange={(e) =>
+                  setIncludeNetworkComponent(e.target.checked)
+                }
               />
+
               <span>
-                <strong>Включване на мрежови компоненти</strong>
+                <strong>
+                  Включване на мрежови компоненти
+                </strong>
                 <br />
-                Искам търговците да включат мрежовите компоненти в офертата.
+                Искам търговците да включат мрежовите
+                компоненти в офертата.
               </span>
             </label>
 
@@ -329,6 +402,7 @@ export default function ConfirmAuctionPage() {
                 checked={hasBattery}
                 onChange={(e) => setHasBattery(e.target.checked)}
               />
+
               <span>
                 <strong>Имам батерия</strong>
                 <br />
@@ -340,15 +414,22 @@ export default function ConfirmAuctionPage() {
               <input
                 placeholder="Капацитет на батерията, kWh"
                 value={batteryCapacityKwh}
-                onChange={(e) => setBatteryCapacityKwh(e.target.value)}
+                onChange={(e) =>
+                  setBatteryCapacityKwh(e.target.value)
+                }
                 style={inputStyle}
               />
             )}
           </div>
 
           <div style={summaryStyle}>
-            <div>Месечно количество: {monthlyKwh.toFixed(0)} kWh</div>
+            <div>
+              Месечно количество:{" "}
+              {monthlyKwh.toFixed(0)} kWh
+            </div>
+
             <div>Период: {months} месеца</div>
+
             <strong>
               Очаквано количество за търга:{" "}
               {estimatedContractKwh.toFixed(0)} kWh
@@ -364,17 +445,28 @@ export default function ConfirmAuctionPage() {
             opacity: creating ? 0.7 : 1,
           }}
         >
-          {creating ? "Създаваме търг..." : "Създай търг"}
+          {creating
+            ? "Създаваме търг..."
+            : "Създай търг"}
         </button>
       </div>
     </main>
   );
 }
 
-function Info({ label, value }: { label: string; value: any }) {
+function Info({
+  label,
+  value,
+}: {
+  label: string;
+  value: any;
+}) {
   return (
     <div style={infoBoxStyle}>
-      <div style={{ color: "#64748b", fontSize: 14 }}>{label}</div>
+      <div style={{ color: "#64748b", fontSize: 14 }}>
+        {label}
+      </div>
+
       <strong>{value || "—"}</strong>
     </div>
   );
@@ -407,7 +499,8 @@ const sectionStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(220px, 1fr))",
   gap: 16,
 };
 
