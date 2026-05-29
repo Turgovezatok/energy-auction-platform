@@ -22,9 +22,7 @@ function extractInvoicePeriod(reportingPeriod: any): {
   month: number | null;
   year: number | null;
 } {
-  if (!reportingPeriod) {
-    return { month: null, year: null };
-  }
+  if (!reportingPeriod) return { month: null, year: null };
 
   const text = String(reportingPeriod);
   const regex = /(\d{1,2})[.\-/](\d{1,2})[.\-/](20\d{2})/g;
@@ -51,7 +49,6 @@ function extractInvoicePeriod(reportingPeriod: any): {
     year: yearMatch ? Number(yearMatch[0]) : null,
   };
 }
-
 
 export async function POST(req: Request) {
   try {
@@ -110,7 +107,20 @@ Use only values explicitly present in the invoice text.
 supplier_name = electricity supplier / invoice issuer / доставчик / издател на фактурата.
 company_name = customer / recipient / получател / клиент.
 
-Never use the supplier as company_name.`,
+Never use the supplier as company_name.
+
+For paid energy fields:
+- paid_energy_total = total value of active energy / electricity energy only, excluding VAT, network fees, excise and other charges.
+- paid_energy_price = unit price of active energy / electricity energy.
+- paid_energy_currency = currency shown next to the active energy amount or invoice currency, usually BGN or EUR.
+- total_energy_kwh = total active energy quantity in kWh.
+Use the master/summary row near the beginning of the invoice when available.
+Look for phrases like:
+"Активна енергия за периода",
+"Активна енергия",
+"Ел. енергия",
+"Електрическа енергия".
+Do not use total invoice amount, VAT amount, network fees, excise or final payable amount as paid_energy_total.`,
             },
             {
               role: "user",
@@ -128,6 +138,10 @@ Extract:
 - supplier_name
 - total_consumption_MWh
 - energy_price_EUR_MWh
+- paid_energy_total
+- paid_energy_price
+- paid_energy_currency
+- total_energy_kwh
 
 Also extract ALL sites / ALL ITN objects.
 
@@ -143,6 +157,10 @@ Return exactly this JSON structure:
   "supplier_name": null,
   "total_consumption_MWh": null,
   "energy_price_EUR_MWh": null,
+  "paid_energy_total": null,
+  "paid_energy_price": null,
+  "paid_energy_currency": null,
+  "total_energy_kwh": null,
   "sites": [
     {
       "itn": null,
@@ -211,10 +229,18 @@ Return exactly this JSON structure:
         customer_vat: extracted.VAT_number || null,
         customer_number: extracted.client_number || null,
         reporting_period: extracted.reporting_period || null,
+
         invoice_period_month: period.month,
         invoice_period_year: period.year,
+
         total_consumption_mwh: normalizeNumber(extracted.total_consumption_MWh),
         energy_price_eur_mwh: normalizeNumber(extracted.energy_price_EUR_MWh),
+
+        paid_energy_total: normalizeNumber(extracted.paid_energy_total),
+        paid_energy_price: normalizeNumber(extracted.paid_energy_price),
+        paid_energy_currency: extracted.paid_energy_currency || null,
+        total_energy_kwh: normalizeNumber(extracted.total_energy_kwh),
+
         extracted_json: extracted,
         extraction_status: "completed",
       })
