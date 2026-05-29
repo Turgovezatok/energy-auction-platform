@@ -91,7 +91,21 @@ export default function AuctionDetailsPage({
     );
   }
 
-  const paidPrice = Number(invoice?.paid_energy_price || 0);
+  function normalizePaidPriceToMwh(price: any) {
+  const value = Number(price || 0);
+
+  if (!value) return 0;
+
+  // Ако цената е под 10, почти сигурно е цена за kWh,
+  // например 0.33139 лв/kWh = 331.39 лв/MWh
+  if (value < 10) {
+    return value * 1000;
+  }
+
+  return value;
+}
+
+const paidPrice = normalizePaidPriceToMwh(invoice?.paid_energy_price);
   const expectedCapture = Number(capture?.expected_capture_price_eur_mwh || 0);
   const supplierAlpha =
     paidPrice && expectedCapture ? paidPrice - expectedCapture : null;
