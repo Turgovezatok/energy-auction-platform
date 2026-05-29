@@ -51,7 +51,7 @@ function extractInvoicePeriod(reportingPeriod: any): {
     year: yearMatch ? Number(yearMatch[0]) : null,
   };
 }
-}
+
 
 export async function POST(req: Request) {
   try {
