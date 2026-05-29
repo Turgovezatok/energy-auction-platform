@@ -17,10 +17,7 @@ function normalizeNumber(value: any): number | null {
     return value;
   }
 
-  const cleaned = String(value)
-    .replace(/\s/g, "")
-    .replace(",", ".");
-
+  const cleaned = String(value).replace(/\s/g, "").replace(",", ".");
   const parsed = Number(cleaned);
 
   return Number.isFinite(parsed) ? parsed : null;
@@ -31,58 +28,33 @@ export async function POST(req: Request) {
     const { fileUrl, invoiceId } = await req.json();
 
     if (!fileUrl) {
-      return NextResponse.json(
-        {
-          error: "Missing fileUrl",
-        },
-        {
-          status: 400,
-        }
-      );
+      return NextResponse.json({ error: "Missing fileUrl" }, { status: 400 });
     }
 
     if (!invoiceId) {
-      return NextResponse.json(
-        {
-          error: "Missing invoiceId",
-        },
-        {
-          status: 400,
-        }
-      );
+      return NextResponse.json({ error: "Missing invoiceId" }, { status: 400 });
     }
 
     if (!process.env.PDF_SERVICE_URL) {
-      throw new Error(
-        "Missing PDF_SERVICE_URL environment variable"
-      );
+      throw new Error("Missing PDF_SERVICE_URL environment variable");
     }
 
     const pdfServiceResponse = await fetch(
       `${process.env.PDF_SERVICE_URL}/extract`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fileUrl,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileUrl }),
       }
     );
 
     const pdfResult = await pdfServiceResponse.json();
 
     if (!pdfServiceResponse.ok || !pdfResult.text) {
-      throw new Error(
-        pdfResult.detail || "PDF extraction failed"
-      );
+      throw new Error(pdfResult.detail || "PDF extraction failed");
     }
 
-    const trimmedText = String(pdfResult.text).slice(
-      0,
-      120000
-    );
+    const trimmedText = String(pdfResult.text).slice(0, 120000);
 
     const openaiResponse = await fetch(
       "https://api.openai.com/v1/chat/completions",
@@ -94,9 +66,7 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           model: "gpt-4.1-mini",
-          response_format: {
-            type: "json_object",
-          },
+          response_format: { type: "json_object" },
           messages: [
             {
               role: "system",
@@ -171,31 +141,21 @@ Return exactly this JSON structure:
 
     if (!openaiResponse.ok) {
       const errorText = await openaiResponse.text();
-
-      throw new Error(
-        `OpenAI extraction failed: ${errorText}`
-      );
+      throw new Error(`OpenAI extraction failed: ${errorText}`);
     }
 
     const result = await openaiResponse.json();
-
-    const content =
-      result.choices?.[0]?.message?.content;
+    const content = result.choices?.[0]?.message?.content;
 
     let extracted: any;
 
     try {
       extracted = JSON.parse(content || "{}");
     } catch {
-      extracted = {
-        raw_response: content,
-      };
+      extracted = { raw_response: content };
     }
 
-    const {
-      data: uploadRecord,
-      error: uploadError,
-    } = await supabase
+    const { data: uploadRecord, error: uploadError } = await supabase
       .from("invoice_uploads")
       .select("*")
       .eq("id", invoiceId)
@@ -205,58 +165,29 @@ Return exactly this JSON structure:
       return NextResponse.json({
         success: true,
         extracted,
-        warning:
-          "Invoice upload record not found",
+        warning: "Invoice upload record not found",
       });
     }
 
     const { error: updateError } = await supabase
       .from("invoice_uploads")
       .update({
-        supplier_name:
-          extracted.supplier_name || null,
-
-        invoice_number:
-          extracted.invoice_number || null,
-
-        invoice_date:
-          extracted.invoice_date || null,
-
-        customer_name:
-          extracted.company_name || null,
-
-        customer_eik:
-          extracted.EIK || null,
-
-        customer_vat:
-          extracted.VAT_number || null,
-
-        customer_number:
-          extracted.client_number || null,
-
-        reporting_period:
-          extracted.reporting_period || null,
-
-        total_consumption_mwh:
-          normalizeNumber(
-            extracted.total_consumption_MWh
-          ),
-
-        energy_price_eur_mwh:
-          normalizeNumber(
-            extracted.energy_price_EUR_MWh
-          ),
-
+        supplier_name: extracted.supplier_name || null,
+        invoice_number: extracted.invoice_number || null,
+        customer_name: extracted.company_name || null,
+        customer_eik: extracted.EIK || null,
+        customer_vat: extracted.VAT_number || null,
+        customer_number: extracted.client_number || null,
+        reporting_period: extracted.reporting_period || null,
+        total_consumption_mwh: normalizeNumber(extracted.total_consumption_MWh),
+        energy_price_eur_mwh: normalizeNumber(extracted.energy_price_EUR_MWh),
         extracted_json: extracted,
-
         extraction_status: "completed",
       })
       .eq("id", invoiceId);
 
     if (updateError) {
-      throw new Error(
-        `Invoice update failed: ${updateError.message}`
-      );
+      throw new Error(`Invoice update failed: ${updateError.message}`);
     }
 
     const { data: existingSites } = await supabase
@@ -265,61 +196,32 @@ Return exactly this JSON structure:
       .eq("invoice_id", invoiceId);
 
     if (existingSites && existingSites.length > 0) {
-      const siteIds = existingSites.map(
-        (site: any) => site.id
-      );
+      const siteIds = existingSites.map((site: any) => site.id);
 
       await supabase
         .from("invoice_site_zones")
         .delete()
         .in("invoice_site_id", siteIds);
 
-      await supabase
-        .from("invoice_sites")
-        .delete()
-        .eq("invoice_id", invoiceId);
+      await supabase.from("invoice_sites").delete().eq("invoice_id", invoiceId);
     }
 
     if (Array.isArray(extracted.sites)) {
       for (const extractedSite of extracted.sites) {
-        const {
-          data: site,
-          error: siteError,
-        } = await supabase
+        const { data: site, error: siteError } = await supabase
           .from("invoice_sites")
           .insert({
             invoice_id: invoiceId,
-
-            itn:
-              extractedSite.itn || null,
-
-            meter_number:
-              extractedSite.meter_number ||
-              null,
-
-            address:
-              extractedSite.address ||
-              null,
-
-            site_name:
-              extractedSite.site_name ||
-              extracted.company_name ||
-              null,
-
+            itn: extractedSite.itn || null,
+            meter_number: extractedSite.meter_number || null,
+            address: extractedSite.address || null,
+            site_name: extractedSite.site_name || extracted.company_name || null,
             distribution_operator:
-              extractedSite.distribution_operator ||
-              extracted.supplier_name ||
-              null,
-
-            consumption_mwh:
-              normalizeNumber(
-                extractedSite.consumption_MWh
-              ),
-
-            energy_price_eur_mwh:
-              normalizeNumber(
-                extractedSite.energy_price_EUR_MWh
-              ),
+              extractedSite.distribution_operator || extracted.supplier_name || null,
+            consumption_mwh: normalizeNumber(extractedSite.consumption_MWh),
+            energy_price_eur_mwh: normalizeNumber(
+              extractedSite.energy_price_EUR_MWh
+            ),
           })
           .select()
           .single();
@@ -328,56 +230,59 @@ Return exactly this JSON structure:
           continue;
         }
 
-        if (
-          Array.isArray(
-            extractedSite.tariff_zones
-          )
-        ) {
+        if (Array.isArray(extractedSite.tariff_zones)) {
           for (const zone of extractedSite.tariff_zones) {
-            await supabase
-              .from("invoice_site_zones")
-              .insert({
-                invoice_site_id:
-                  site.id,
-
-                zone_name:
-                  zone.zone_name ||
-                  null,
-
-                zone_code:
-                  zone.tariff_code ||
-                  null,
-
-                consumption_kwh:
-                  normalizeNumber(
-                    zone.consumption_kwh ||
-                      zone.consumption_KWh ||
-                      zone.consumption_kWh ||
-                      zone.kwh ||
-                      zone.KWh ||
-                      zone.consumption
-                  ),
-              });
+            await supabase.from("invoice_site_zones").insert({
+              invoice_site_id: site.id,
+              zone_name: zone.zone_name || null,
+              zone_code: zone.tariff_code || null,
+              consumption_kwh: normalizeNumber(
+                zone.consumption_kwh ||
+                  zone.consumption_KWh ||
+                  zone.consumption_kWh ||
+                  zone.kwh ||
+                  zone.KWh ||
+                  zone.consumption
+              ),
+            });
           }
         }
       }
     }
 
+    const profileResponse = await fetch(
+      new URL("/api/calculate-load-profile", req.url),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoiceId }),
+      }
+    );
+
+    let loadProfile = null;
+
+    try {
+      const profileResult = await profileResponse.json();
+
+      if (profileResponse.ok && profileResult.success) {
+        loadProfile = profileResult.profile;
+      }
+    } catch {
+      loadProfile = null;
+    }
+
     return NextResponse.json({
       success: true,
       extracted,
+      loadProfile,
     });
   } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error.message ||
-          "Extraction failed",
+        error: error.message || "Extraction failed",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
