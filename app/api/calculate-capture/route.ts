@@ -14,14 +14,8 @@ function safeNumber(value: any): number {
 }
 
 function getRecommendedModel(riskScore: number, volatilityScore: number) {
-  if (riskScore >= 75 || volatilityScore >= 1.2) {
-    return "day-ahead-plus-adder";
-  }
-
-  if (riskScore >= 45) {
-    return "hybrid";
-  }
-
+  if (riskScore >= 75 || volatilityScore >= 1.2) return "day-ahead-plus-adder";
+  if (riskScore >= 45) return "hybrid";
   return "fixed-price";
 }
 
@@ -62,17 +56,11 @@ export async function POST(req: Request) {
       throw new Error("Load profile not found");
     }
 
-    const reportingPeriod = invoice.reporting_period || "";
-    const yearMatch = reportingPeriod.match(/20\d{2}/);
-    const year = yearMatch ? Number(yearMatch[0]) : new Date().getFullYear();
+    const year =
+      Number(invoice.invoice_period_year) || new Date().getFullYear();
 
-    let month = new Date().getMonth() + 1;
-
-    const dateMatch = reportingPeriod.match(/(\d{2})\.(\d{2})\.(20\d{2})/);
-
-    if (dateMatch) {
-      month = Number(dateMatch[2]);
-    }
+    const month =
+      Number(invoice.invoice_period_month) || new Date().getMonth() + 1;
 
     const { data: market, error: marketError } = await supabase
       .from("market_monthly_summary")
@@ -91,21 +79,22 @@ export async function POST(req: Request) {
       );
     }
 
+    const currency = market.currency || invoice.paid_energy_currency || "";
+
     const dayShare = safeNumber(profile.day_share);
     const nightShare = safeNumber(profile.night_share);
     const peakShare = safeNumber(profile.peak_share);
     const offpeakShare = safeNumber(profile.offpeak_share);
 
+    const basePrice = safeNumber(market.base_price_eur_mwh);
     const peakPrice = safeNumber(market.peak_price_eur_mwh);
     const offpeakPrice = safeNumber(market.offpeak_price_eur_mwh);
-    const basePrice = safeNumber(market.base_price_eur_mwh);
 
     const effectivePeakShare = peakShare || dayShare;
     const effectiveOffpeakShare = offpeakShare || nightShare;
 
     let capturePrice =
-      effectivePeakShare * peakPrice +
-      effectiveOffpeakShare * offpeakPrice;
+      effectivePeakShare * peakPrice + effectiveOffpeakShare * offpeakPrice;
 
     if (!capturePrice || capturePrice <= 0) {
       capturePrice = basePrice;
@@ -116,7 +105,6 @@ export async function POST(req: Request) {
 
     const spread = safeNumber(market.spread_eur_mwh);
     const volatilityScore = safeNumber(market.volatility_score);
-
     const dayNightRatio = safeNumber(profile.day_night_load_ratio);
 
     let riskScore = 0;
@@ -146,10 +134,15 @@ export async function POST(req: Request) {
         invoice_id: invoiceId,
         year,
         month,
+        currency,
 
         market_base_price_eur_mwh: basePrice,
         market_peak_price_eur_mwh: peakPrice,
         market_offpeak_price_eur_mwh: offpeakPrice,
+
+        market_base_price: basePrice,
+        market_peak_price: peakPrice,
+        market_offpeak_price: offpeakPrice,
 
         day_share: dayShare,
         night_share: nightShare,
@@ -157,10 +150,15 @@ export async function POST(req: Request) {
         offpeak_share: effectiveOffpeakShare,
 
         expected_capture_price_eur_mwh: Number(capturePrice.toFixed(3)),
+        expected_capture_price: Number(capturePrice.toFixed(3)),
+
         total_consumption_mwh: totalMwh,
+
         estimated_energy_cost_eur: Number(estimatedEnergyCost.toFixed(2)),
+        estimated_energy_cost: Number(estimatedEnergyCost.toFixed(2)),
 
         spread_eur_mwh: spread,
+        spread,
         volatility_score: volatilityScore,
 
         day_night_load_ratio: profile.day_night_load_ratio,
