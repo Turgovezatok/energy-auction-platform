@@ -121,6 +121,7 @@ export default function AuctionDetailsPage({
   const expectedCaptureEurMwh = toNumber(
     capture?.expected_capture_price_eur_mwh
   );
+
   const expectedCaptureBgnMwh = expectedCaptureEurMwh
     ? expectedCaptureEurMwh * BGN_TO_EUR
     : null;
@@ -135,8 +136,48 @@ export default function AuctionDetailsPage({
       ? (supplierAlphaBgnMwh / expectedCaptureBgnMwh) * 100
       : null;
 
-  const dayShare = safeShare(profile?.day_share);
-  const nightShare = safeShare(profile?.night_share);
+  const dayKwh = toNumber(
+    profile?.day_kwh ??
+      profile?.day_energy_kwh ??
+      invoice?.day_energy_kwh ??
+      invoice?.day_consumption_kwh ??
+      invoice?.day_kwh ??
+      invoice?.day_active_energy_kwh
+  );
+
+  const nightKwh = toNumber(
+    profile?.night_kwh ??
+      profile?.night_energy_kwh ??
+      invoice?.night_energy_kwh ??
+      invoice?.night_consumption_kwh ??
+      invoice?.night_kwh ??
+      invoice?.night_active_energy_kwh
+  );
+
+  const totalKwh =
+    toNumber(invoice?.total_energy_kwh) ||
+    toNumber(invoice?.total_consumption_mwh) * 1000 ||
+    dayKwh + nightKwh;
+
+  const calculatedDayShare = totalKwh > 0 ? dayKwh / totalKwh : 0;
+  const calculatedNightShare = totalKwh > 0 ? nightKwh / totalKwh : 0;
+
+  const dayShare = profile?.day_share
+    ? safeShare(profile.day_share)
+    : calculatedDayShare;
+
+  const nightShare = profile?.night_share
+    ? safeShare(profile.night_share)
+    : calculatedNightShare;
+
+  const avgDayLoadKw =
+    toNumber(profile?.avg_day_load_kw) || calculateAverageLoad(dayKwh, 14, 28);
+
+  const avgNightLoadKw =
+    toNumber(profile?.avg_night_load_kw) ||
+    calculateAverageLoad(nightKwh, 10, 28);
+
+  const maxLoad = Math.max(avgDayLoadKw, avgNightLoadKw);
 
   return (
     <main style={pageStyle}>
@@ -223,30 +264,37 @@ export default function AuctionDetailsPage({
 
           {!profile && (
             <p style={mutedStyle}>
-              Няма намерен load profile за тази фактура.
+              Няма записан load profile, но системата изчислява дневен и нощен
+              профил от данните във фактурата, ако са налични.
             </p>
           )}
 
-          {profile && (
+          {(profile || dayKwh || nightKwh) ? (
             <>
               <div style={gridStyle}>
+                <Info label="Дневна енергия" value={formatKWh(dayKwh)} />
+                <Info label="Нощна енергия" value={formatKWh(nightKwh)} />
                 <Info label="Дневен дял" value={formatPercent(dayShare)} />
                 <Info label="Нощен дял" value={formatPercent(nightShare)} />
                 <Info
                   label="Среден дневен товар"
-                  value={formatKW(profile.avg_day_load_kw)}
+                  value={formatKW(avgDayLoadKw)}
                 />
                 <Info
                   label="Среден нощен товар"
-                  value={formatKW(profile.avg_night_load_kw)}
+                  value={formatKW(avgNightLoadKw)}
                 />
                 <Info
                   label="Day/Night ratio"
-                  value={formatNumber(profile.day_night_load_ratio)}
+                  value={
+                    nightKwh > 0
+                      ? formatNumber(dayKwh / nightKwh)
+                      : formatNumber(profile?.day_night_load_ratio)
+                  }
                 />
-                <Info label="Профил" value={profile.profile_type || "—"} />
-                <Info label="Качество" value={profile.profile_quality || "—"} />
-                <Info label="Риск" value={profile.risk_level || "—"} />
+                <Info label="Профил" value={profile?.profile_type || "—"} />
+                <Info label="Качество" value={profile?.profile_quality || "—"} />
+                <Info label="Риск" value={profile?.risk_level || "—"} />
               </div>
 
               <div style={profileVisualStyle}>
@@ -264,26 +312,25 @@ export default function AuctionDetailsPage({
                 <div style={barBoxStyle}>
                   <LoadBar
                     label="Среден дневен товар"
-                    value={toNumber(profile.avg_day_load_kw)}
-                    maxValue={Math.max(
-                      toNumber(profile.avg_day_load_kw),
-                      toNumber(profile.avg_night_load_kw)
-                    )}
+                    value={avgDayLoadKw}
+                    maxValue={maxLoad}
                     unit="kW"
                   />
 
                   <LoadBar
                     label="Среден нощен товар"
-                    value={toNumber(profile.avg_night_load_kw)}
-                    maxValue={Math.max(
-                      toNumber(profile.avg_day_load_kw),
-                      toNumber(profile.avg_night_load_kw)
-                    )}
+                    value={avgNightLoadKw}
+                    maxValue={maxLoad}
                     unit="kW"
                   />
                 </div>
               </div>
             </>
+          ) : (
+            <p style={mutedStyle}>
+              Не са открити отделни стойности за дневна и нощна енергия във
+              фактурата.
+            </p>
           )}
         </section>
 
@@ -328,7 +375,10 @@ export default function AuctionDetailsPage({
                   label="Estimated market energy cost"
                   value={formatEUR(capture.estimated_energy_cost_eur)}
                 />
-                <Info label="Risk score" value={`${capture.risk_score || "—"}/100`} />
+                <Info
+                  label="Risk score"
+                  value={`${capture.risk_score || "—"}/100`}
+                />
                 <Info
                   label="Recommended model"
                   value={capture.recommended_pricing_model || "—"}
@@ -401,6 +451,11 @@ function normalizePaidPriceToBgnMwh(price: any, currency: any) {
   }
 
   return value;
+}
+
+function calculateAverageLoad(kwh: number, hoursPerDay: number, days: number) {
+  if (!kwh || !hoursPerDay || !days) return 0;
+  return kwh / (hoursPerDay * days);
 }
 
 function toNumber(value: any) {
