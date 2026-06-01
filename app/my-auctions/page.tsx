@@ -75,7 +75,12 @@ export default function MyAuctionsPage() {
             </div>
 
             <div style={footerStyle}>
-              <button style={secondaryButtonStyle}>Оферти</button>
+              <a
+                href={`/auction/${auction.id}/bids`}
+                style={secondaryLinkStyle}
+              >
+                Оферти
+              </a>
 
               <a href={`/auction/${auction.id}`} style={primaryLinkStyle}>
                 Детайли
@@ -211,7 +216,7 @@ const footerStyle: React.CSSProperties = {
   marginTop: 24,
 };
 
-const secondaryButtonStyle: React.CSSProperties = {
+const secondaryLinkStyle: React.CSSProperties = {
   padding: "12px 16px",
   borderRadius: 14,
   border: "1px solid #cbd5e1",
@@ -219,6 +224,8 @@ const secondaryButtonStyle: React.CSSProperties = {
   color: "#0f172a",
   fontWeight: 700,
   cursor: "pointer",
+  textDecoration: "none",
+  display: "inline-block",
 };
 
 const primaryLinkStyle: React.CSSProperties = {
