@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
+
+const BGN_TO_EUR = 1.95583;
 
 export default function AuctionDetailsPage({
   params,
@@ -13,12 +16,17 @@ export default function AuctionDetailsPage({
   const [profile, setProfile] = useState<any>(null);
   const [capture, setCapture] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     loadAuction();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id]);
 
   async function loadAuction() {
+    setLoading(true);
+    setErrorMessage("");
+
     try {
       const { data: auctionData, error: auctionError } = await supabase
         .from("auctions")
@@ -27,30 +35,32 @@ export default function AuctionDetailsPage({
         .single();
 
       if (auctionError || !auctionData) {
-        alert("Не успяхме да заредим търга.");
-        setLoading(false);
+        setAuction(null);
+        setErrorMessage("Търгът не е намерен.");
         return;
       }
 
       setAuction(auctionData);
 
-      if (auctionData.source_invoice_id) {
-        const { data: invoiceData } = await supabase
-          .from("invoice_uploads")
-          .select("*")
-          .eq("id", auctionData.source_invoice_id)
-          .single();
+      if (!auctionData.source_invoice_id) return;
 
-        setInvoice(invoiceData);
+      const { data: invoiceData } = await supabase
+        .from("invoice_uploads")
+        .select("*")
+        .eq("id", auctionData.source_invoice_id)
+        .maybeSingle();
 
-        const { data: profileData } = await supabase
-          .from("invoice_load_profiles")
-          .select("*")
-          .eq("invoice_id", auctionData.source_invoice_id)
-          .single();
+      setInvoice(invoiceData || null);
 
-        setProfile(profileData);
+      const { data: profileData } = await supabase
+        .from("invoice_load_profiles")
+        .select("*")
+        .eq("invoice_id", auctionData.source_invoice_id)
+        .maybeSingle();
 
+      setProfile(profileData || null);
+
+      try {
         const response = await fetch("/api/calculate-capture", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -64,21 +74,26 @@ export default function AuctionDetailsPage({
         if (response.ok && result.success) {
           setCapture(result.capture);
         }
+      } catch {
+        setCapture(null);
       }
     } catch (error) {
-      alert(
-        "Грешка при зареждане:\n\n" +
-          (error instanceof Error ? error.message : String(error))
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Възникна грешка при зареждане на търга."
       );
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   if (loading) {
     return (
       <main style={pageStyle}>
-        <h1>Зареждане...</h1>
+        <div style={containerStyle}>
+          <h1>Зареждане...</h1>
+        </div>
       </main>
     );
   }
@@ -86,91 +101,98 @@ export default function AuctionDetailsPage({
   if (!auction) {
     return (
       <main style={pageStyle}>
-        <h1>Търгът не е намерен</h1>
+        <div style={containerStyle}>
+          <Link href="/my-auctions" style={backLinkStyle}>
+            ← Назад към моите търгове
+          </Link>
+          <section style={cardStyle}>
+            <h1>{errorMessage || "Търгът не е намерен."}</h1>
+          </section>
+        </div>
       </main>
     );
   }
 
-  function normalizePaidPriceToMwh(price: any) {
-    const value = Number(price || 0);
+  const paidPriceBgnMwh = normalizePaidPriceToBgnMwh(
+    invoice?.paid_energy_price,
+    invoice?.paid_energy_currency
+  );
 
-    if (!value) return 0;
+  const expectedCaptureEurMwh = toNumber(
+    capture?.expected_capture_price_eur_mwh
+  );
+  const expectedCaptureBgnMwh = expectedCaptureEurMwh
+    ? expectedCaptureEurMwh * BGN_TO_EUR
+    : null;
 
-    if (value < 10) {
-      return value * 1000;
-    }
-
-    return value;
-  }
-
-  const paidPrice = normalizePaidPriceToMwh(invoice?.paid_energy_price);
-  const expectedCapture = Number(capture?.expected_capture_price_eur_mwh || 0);
-
-  const supplierAlpha =
-    paidPrice && expectedCapture ? paidPrice - expectedCapture : null;
-
-  const supplierAlphaPercent =
-    supplierAlpha !== null && expectedCapture
-      ? (supplierAlpha / expectedCapture) * 100
+  const supplierAlphaBgnMwh =
+    paidPriceBgnMwh && expectedCaptureBgnMwh
+      ? paidPriceBgnMwh - expectedCaptureBgnMwh
       : null;
 
-  const currency = invoice?.paid_energy_currency || capture?.currency || "";
+  const supplierAlphaPercent =
+    supplierAlphaBgnMwh !== null && expectedCaptureBgnMwh
+      ? (supplierAlphaBgnMwh / expectedCaptureBgnMwh) * 100
+      : null;
+
+  const dayShare = safeShare(profile?.day_share);
+  const nightShare = safeShare(profile?.night_share);
 
   return (
     <main style={pageStyle}>
       <div style={containerStyle}>
-        <a href="/my-auctions" style={backLinkStyle}>
+        <Link href="/my-auctions" style={backLinkStyle}>
           ← Назад към моите търгове
-        </a>
+        </Link>
+
+        {errorMessage && (
+          <section style={warningStyle}>
+            <strong>Внимание:</strong> {errorMessage}
+          </section>
+        )}
 
         <section style={heroCardStyle}>
           <div>
-            <div style={badgeStyle}>Активен търг</div>
-
+            <div style={badgeStyle}>{auction.status || "Активен търг"}</div>
             <h1 style={{ marginBottom: 8 }}>
               {auction.title || "Търг за електроенергия"}
             </h1>
-
-            <p style={mutedStyle}>Номер: {auction.auction_number || "—"}</p>
+            <p style={heroMutedStyle}>Номер: {auction.auction_number || "—"}</p>
           </div>
 
           <div style={heroMetricStyle}>
             <span>Количество</span>
-            <strong>{auction.quantity_mwh || "—"} MWh</strong>
+            <strong>{formatMWh(auction.quantity_mwh)}</strong>
           </div>
         </section>
 
         <section style={gridStyle}>
           <Info
             label="Тип"
-            value={auction.board_type === "buy" ? "Покупка" : "Продажба"}
+            value={auction.board_type === "sell" ? "Продажба" : "Покупка"}
           />
-          <Info
-            label="Период"
-            value={`${auction.duration_months || "—"} месеца`}
-          />
+          <Info label="Период" value={formatMonths(auction.duration_months)} />
           <Info label="Начало доставка" value={auction.delivery_start || "—"} />
           <Info label="Краен срок оферти" value={auction.offer_deadline || "—"} />
+          <Info label="Ценови модел" value={auction.pricing_model || "—"} />
           <Info label="Текущ доставчик" value={auction.current_supplier || "—"} />
           <Info
             label="Мрежови компоненти"
             value={auction.network_component ? "Да" : "Не"}
           />
           <Info label="Батерия" value={auction.has_battery ? "Да" : "Не"} />
-          <Info
-            label="Капацитет батерия"
-            value={
-              auction.has_battery
-                ? `${auction.battery_capacity_kwh || "—"} kWh`
-                : "—"
-            }
-          />
         </section>
 
-        {invoice && (
-          <section style={cardStyle}>
-            <h2>Данни от фактурата</h2>
+        <section style={cardStyle}>
+          <h2>Данни от фактурата</h2>
 
+          {!invoice && (
+            <p style={mutedStyle}>
+              Няма достатъчно данни от фактурата за пълен анализ.
+            </p>
+          )}
+
+          {invoice && (
             <div style={gridStyle}>
               <Info label="Фирма" value={invoice.customer_name || "—"} />
               <Info label="ЕИК" value={invoice.customer_eik || "—"} />
@@ -178,172 +200,156 @@ export default function AuctionDetailsPage({
               <Info label="Период" value={invoice.reporting_period || "—"} />
               <Info
                 label="Месечно потребление"
-                value={`${invoice.total_consumption_mwh || "—"} MWh`}
+                value={formatMWh(invoice.total_consumption_mwh)}
               />
               <Info
                 label="Платена цена енергия"
-                value={
-                  paidPrice
-                    ? `${paidPrice.toFixed(2)} ${currency}/MWh`
-                    : "—"
-                }
+                value={formatBGNPerMWh(paidPriceBgnMwh)}
               />
               <Info
-                label="Платена стойност енергия"
-                value={
-                  invoice.paid_energy_total
-                    ? `${invoice.paid_energy_total} ${currency}`
-                    : "—"
-                }
+                label="Платена цена енергия"
+                value={formatEURPerMWh(convertBGNtoEUR(paidPriceBgnMwh))}
               />
               <Info
                 label="Общо активна енергия"
-                value={
-                  invoice.total_energy_kwh
-                    ? `${invoice.total_energy_kwh} kWh`
-                    : "—"
-                }
+                value={formatKWh(invoice.total_energy_kwh)}
               />
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
-        {profile && (
-          <section style={cardStyle}>
-            <h2>Load Profile</h2>
+        <section style={cardStyle}>
+          <h2>Day / Night визуализация</h2>
 
-            <div style={gridStyle}>
-              <Info
-                label="Дневен дял"
-                value={`${(Number(profile.day_share || 0) * 100).toFixed(1)}%`}
-              />
-              <Info
-                label="Нощен дял"
-                value={`${(Number(profile.night_share || 0) * 100).toFixed(1)}%`}
-              />
-              <Info
-                label="Среден дневен товар"
-                value={`${Number(profile.avg_day_load_kw || 0).toFixed(2)} kW`}
-              />
-              <Info
-                label="Среден нощен товар"
-                value={`${Number(profile.avg_night_load_kw || 0).toFixed(2)} kW`}
-              />
-              <Info
-                label="Day/Night ratio"
-                value={`${Number(profile.day_night_load_ratio || 0).toFixed(2)}`}
-              />
-              <Info label="Профил" value={profile.profile_type || "—"} />
-              <Info label="Качество" value={profile.profile_quality || "—"} />
-              <Info label="Риск" value={profile.risk_level || "—"} />
-            </div>
+          {!profile && (
+            <p style={mutedStyle}>
+              Няма намерен load profile за тази фактура.
+            </p>
+          )}
 
-            <div style={profileVisualStyle}>
-              <h3>Относителен дял на потреблението</h3>
-
-              <div style={stackedBarStyle}>
-                <div
-                  style={{
-                    ...dayBarStyle,
-                    width: `${Number(profile.day_share || 0) * 100}%`,
-                  }}
-                >
-                  Дневна {(Number(profile.day_share || 0) * 100).toFixed(1)}%
-                </div>
-
-                <div
-                  style={{
-                    ...nightBarStyle,
-                    width: `${Number(profile.night_share || 0) * 100}%`,
-                  }}
-                >
-                  Нощна {(Number(profile.night_share || 0) * 100).toFixed(1)}%
-                </div>
-              </div>
-
-              <div style={barBoxStyle}>
-                <LoadBar
+          {profile && (
+            <>
+              <div style={gridStyle}>
+                <Info label="Дневен дял" value={formatPercent(dayShare)} />
+                <Info label="Нощен дял" value={formatPercent(nightShare)} />
+                <Info
                   label="Среден дневен товар"
-                  value={Number(profile.avg_day_load_kw || 0)}
-                  maxValue={Math.max(
-                    Number(profile.avg_day_load_kw || 0),
-                    Number(profile.avg_night_load_kw || 0)
-                  )}
-                  unit="kW"
+                  value={formatKW(profile.avg_day_load_kw)}
                 />
-
-                <LoadBar
+                <Info
                   label="Среден нощен товар"
-                  value={Number(profile.avg_night_load_kw || 0)}
-                  maxValue={Math.max(
-                    Number(profile.avg_day_load_kw || 0),
-                    Number(profile.avg_night_load_kw || 0)
-                  )}
-                  unit="kW"
+                  value={formatKW(profile.avg_night_load_kw)}
+                />
+                <Info
+                  label="Day/Night ratio"
+                  value={formatNumber(profile.day_night_load_ratio)}
+                />
+                <Info label="Профил" value={profile.profile_type || "—"} />
+                <Info label="Качество" value={profile.profile_quality || "—"} />
+                <Info label="Риск" value={profile.risk_level || "—"} />
+              </div>
+
+              <div style={profileVisualStyle}>
+                <div style={stackedBarStyle}>
+                  <div style={{ ...dayBarStyle, width: `${dayShare * 100}%` }}>
+                    Дневна {formatPercent(dayShare)}
+                  </div>
+                  <div
+                    style={{ ...nightBarStyle, width: `${nightShare * 100}%` }}
+                  >
+                    Нощна {formatPercent(nightShare)}
+                  </div>
+                </div>
+
+                <div style={barBoxStyle}>
+                  <LoadBar
+                    label="Среден дневен товар"
+                    value={toNumber(profile.avg_day_load_kw)}
+                    maxValue={Math.max(
+                      toNumber(profile.avg_day_load_kw),
+                      toNumber(profile.avg_night_load_kw)
+                    )}
+                    unit="kW"
+                  />
+
+                  <LoadBar
+                    label="Среден нощен товар"
+                    value={toNumber(profile.avg_night_load_kw)}
+                    maxValue={Math.max(
+                      toNumber(profile.avg_day_load_kw),
+                      toNumber(profile.avg_night_load_kw)
+                    )}
+                    unit="kW"
+                  />
+                </div>
+              </div>
+            </>
+          )}
+        </section>
+
+        <section style={riskCardStyle}>
+          <h2>Capture анализ</h2>
+
+          {!capture && (
+            <p style={mutedStyle}>
+              Няма наличен capture анализ. Провери дали има пазарни данни за
+              месеца и годината на фактурата.
+            </p>
+          )}
+
+          {capture && (
+            <>
+              <div style={gridStyle}>
+                <Info
+                  label="Пазарен месец"
+                  value={`${capture.month || "—"}/${capture.year || "—"}`}
+                />
+                <Info
+                  label="Base price"
+                  value={formatEURPerMWh(capture.market_base_price_eur_mwh)}
+                />
+                <Info
+                  label="Peak price"
+                  value={formatEURPerMWh(capture.market_peak_price_eur_mwh)}
+                />
+                <Info
+                  label="Off-peak price"
+                  value={formatEURPerMWh(capture.market_offpeak_price_eur_mwh)}
+                />
+                <Info
+                  label="Expected capture"
+                  value={formatEURPerMWh(capture.expected_capture_price_eur_mwh)}
+                />
+                <Info
+                  label="Expected capture"
+                  value={formatBGNPerMWh(expectedCaptureBgnMwh)}
+                />
+                <Info
+                  label="Estimated market energy cost"
+                  value={formatEUR(capture.estimated_energy_cost_eur)}
+                />
+                <Info label="Risk score" value={`${capture.risk_score || "—"}/100`} />
+                <Info
+                  label="Recommended model"
+                  value={capture.recommended_pricing_model || "—"}
                 />
               </div>
-            </div>
-          </section>
-        )}
 
-        {capture ? (
-          <section style={riskCardStyle}>
-            <h2>Capture & Risk Analysis</h2>
-
-            <div style={gridStyle}>
-              <Info label="Пазарен месец" value={`${capture.month}/${capture.year}`} />
-              <Info
-                label="Base price"
-                value={`${capture.market_base_price_eur_mwh} ${currency}/MWh`}
-              />
-              <Info
-                label="Peak price"
-                value={`${capture.market_peak_price_eur_mwh} ${currency}/MWh`}
-              />
-              <Info
-                label="Off-peak price"
-                value={`${capture.market_offpeak_price_eur_mwh} ${currency}/MWh`}
-              />
-              <Info
-                label="Expected capture"
-                value={`${capture.expected_capture_price_eur_mwh} ${currency}/MWh`}
-              />
-              <Info
-                label="Estimated market energy cost"
-                value={`${capture.estimated_energy_cost_eur} ${currency}`}
-              />
-              <Info label="Risk score" value={`${capture.risk_score}/100`} />
-              <Info label="Recommended model" value={capture.recommended_pricing_model} />
-            </div>
-
-            {invoice && (
               <div style={benchmarkCardStyle}>
                 <h3>Paid Price vs Expected Capture</h3>
 
                 <div style={gridStyle}>
                   <Info
                     label="Реално платена цена"
-                    value={
-                      paidPrice
-                        ? `${paidPrice.toFixed(2)} ${currency}/MWh`
-                        : "—"
-                    }
+                    value={formatBGNPerMWh(paidPriceBgnMwh)}
                   />
                   <Info
                     label="Expected capture"
-                    value={
-                      expectedCapture
-                        ? `${expectedCapture.toFixed(2)} ${currency}/MWh`
-                        : "—"
-                    }
+                    value={formatBGNPerMWh(expectedCaptureBgnMwh)}
                   />
                   <Info
                     label="Supplier Alpha"
-                    value={
-                      supplierAlpha !== null
-                        ? `${supplierAlpha.toFixed(2)} ${currency}/MWh`
-                        : "—"
-                    }
+                    value={formatBGNPerMWh(supplierAlphaBgnMwh)}
                   />
                   <Info
                     label="Разлика %"
@@ -361,25 +367,17 @@ export default function AuctionDetailsPage({
                   платил над очаквания capture за своя товар.
                 </p>
               </div>
-            )}
 
-            <div style={riskSummaryStyle}>
-              <strong>Risk level: {capture.risk_level}</strong>
-              <p>
-                Профил: {capture.profile_type}. Данните са базирани на тарифна
-                структура от фактурата и исторически пазарни цени.
-              </p>
-            </div>
-          </section>
-        ) : (
-          <section style={cardStyle}>
-            <h2>Capture анализ</h2>
-            <p style={mutedStyle}>
-              Няма наличен capture анализ. Проверете дали има пазарни данни за
-              месеца и годината на фактурата.
-            </p>
-          </section>
-        )}
+              <div style={riskSummaryStyle}>
+                <strong>Risk level: {capture.risk_level || "—"}</strong>
+                <p>
+                  Профил: {capture.profile_type || "—"}. Данните са базирани на
+                  тарифна структура от фактурата и исторически пазарни цени.
+                </p>
+              </div>
+            </>
+          )}
+        </section>
 
         <section style={cardStyle}>
           <h2>Бележки</h2>
@@ -388,6 +386,114 @@ export default function AuctionDetailsPage({
       </div>
     </main>
   );
+}
+
+function normalizePaidPriceToBgnMwh(price: any, currency: any) {
+  let value = toNumber(price);
+  if (!value) return null;
+
+  if (value < 10) value = value * 1000;
+
+  const normalizedCurrency = String(currency || "BGN").toUpperCase();
+
+  if (normalizedCurrency.includes("EUR")) {
+    return value * BGN_TO_EUR;
+  }
+
+  return value;
+}
+
+function toNumber(value: any) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function safeShare(value: any) {
+  const number = toNumber(value);
+  if (number > 1) return Math.min(1, number / 100);
+  return Math.max(0, Math.min(1, number));
+}
+
+function convertBGNtoEUR(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return null;
+  return value / BGN_TO_EUR;
+}
+
+function formatBGN(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  return `${value.toLocaleString("bg-BG", {
+    maximumFractionDigits: 2,
+  })} лв.`;
+}
+
+function formatEUR(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  return `${value.toLocaleString("bg-BG", {
+    maximumFractionDigits: 2,
+  })} €`;
+}
+
+function formatBGNPerMWh(value?: number | null) {
+  const formatted = formatBGN(value);
+  return formatted === "—" ? "—" : `${formatted}/MWh`;
+}
+
+function formatEURPerMWh(value?: number | null) {
+  const formatted = formatEUR(value);
+  return formatted === "—" ? "—" : `${formatted}/MWh`;
+}
+
+function formatKWh(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+
+  return `${Number(value).toLocaleString("bg-BG", {
+    maximumFractionDigits: 0,
+  })} kWh`;
+}
+
+function formatMWh(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+
+  return `${Number(value).toLocaleString("bg-BG", {
+    maximumFractionDigits: 2,
+  })} MWh`;
+}
+
+function formatKW(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+
+  return `${Number(value).toLocaleString("bg-BG", {
+    maximumFractionDigits: 2,
+  })} kW`;
+}
+
+function formatPercent(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+
+  return `${(Number(value) * 100).toFixed(1)}%`;
+}
+
+function formatNumber(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+
+  return Number(value).toLocaleString("bg-BG", {
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatMonths(value?: number | null) {
+  if (!value) return "—";
+  return `${value} месеца`;
 }
 
 function Info({ label, value }: { label: string; value: any }) {
@@ -433,7 +539,7 @@ const pageStyle: React.CSSProperties = {
   minHeight: "100vh",
   background: "#f3f6fb",
   padding: 40,
-  fontFamily: "Arial",
+  fontFamily: "Arial, sans-serif",
 };
 
 const containerStyle: React.CSSProperties = {
@@ -447,6 +553,15 @@ const backLinkStyle: React.CSSProperties = {
   color: "#2563eb",
   textDecoration: "none",
   fontWeight: 700,
+};
+
+const warningStyle: React.CSSProperties = {
+  background: "#fff7ed",
+  border: "1px solid #fdba74",
+  color: "#9a3412",
+  padding: 16,
+  borderRadius: 16,
+  marginBottom: 20,
 };
 
 const heroCardStyle: React.CSSProperties = {
@@ -468,6 +583,11 @@ const badgeStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.18)",
   fontWeight: 700,
   marginBottom: 12,
+};
+
+const heroMutedStyle: React.CSSProperties = {
+  color: "rgba(255,255,255,0.78)",
+  lineHeight: 1.6,
 };
 
 const heroMetricStyle: React.CSSProperties = {
