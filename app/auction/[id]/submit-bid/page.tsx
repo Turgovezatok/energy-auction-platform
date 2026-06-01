@@ -24,18 +24,20 @@ export default function SubmitBidPage({
     supplier_email: "",
     supplier_phone: "",
     contact_person: "",
+    valid_until: "",
 
-    pricing_model: "fixed",
-
+    offer_fixed_enabled: true,
     fixed_price_bgn_mwh: "",
+
+    offer_indexed_enabled: true,
     day_ahead_adder_bgn_mwh: "",
     balancing_adder_bgn_mwh: "",
 
+    offer_hybrid_enabled: true,
     hybrid_fixed_price_bgn_mwh: "",
     hybrid_fixed_share_percent: "50",
     hybrid_indexed_share_percent: "50",
 
-    valid_until: "",
     payment_terms: "",
     notes: "",
 
@@ -110,12 +112,68 @@ export default function SubmitBidPage({
     }));
   }
 
+  const dayKwh = toNumber(
+    profile?.day_kwh ??
+      profile?.day_energy_kwh ??
+      invoice?.day_energy_kwh ??
+      invoice?.day_consumption_kwh ??
+      invoice?.day_kwh ??
+      invoice?.day_active_energy_kwh
+  );
+
+  const nightKwh = toNumber(
+    profile?.night_kwh ??
+      profile?.night_energy_kwh ??
+      invoice?.night_energy_kwh ??
+      invoice?.night_consumption_kwh ??
+      invoice?.night_kwh ??
+      invoice?.night_active_energy_kwh
+  );
+
+  const totalKwh =
+    toNumber(invoice?.total_energy_kwh) ||
+    toNumber(invoice?.total_consumption_mwh) * 1000 ||
+    dayKwh + nightKwh;
+
+  const dayShare =
+    totalKwh > 0 ? dayKwh / totalKwh : safeShare(profile?.day_share);
+
+  const nightShare =
+    totalKwh > 0 ? nightKwh / totalKwh : safeShare(profile?.night_share);
+
+  const avgDayLoadKw =
+    toNumber(profile?.avg_day_load_kw) || calculateAverageLoad(dayKwh, 14, 28);
+
+  const avgNightLoadKw =
+    toNumber(profile?.avg_night_load_kw) ||
+    calculateAverageLoad(nightKwh, 10, 28);
+
+  const capturePriceEurMwh = toNumber(capture?.expected_capture_price_eur_mwh);
+
+  const capturePriceBgnMwh = capturePriceEurMwh
+    ? capturePriceEurMwh * BGN_TO_EUR
+    : null;
+
+  const profileDescription = buildProfileDescription(
+    dayShare,
+    nightShare,
+    avgDayLoadKw,
+    avgNightLoadKw
+  );
+
+  const deliveryEnd = calculateDeliveryEnd(
+    auction?.delivery_start,
+    auction?.duration_months
+  );
+
+  const fixedTotalBgn = calculateFixedTotalBgn();
+  const indexedTotalBgn = calculateIndexedTotalBgn();
+  const hybridTotalBgn = calculateHybridTotalBgn();
+
   async function submitBid(event: React.FormEvent) {
     event.preventDefault();
     setSaving(true);
     setMessage("");
-
-    const estimatedTotalBgn = calculateEstimatedTotalBgn();
 
     const { error } = await supabase.from("auction_bids").insert({
       auction_id: params.id,
@@ -125,32 +183,43 @@ export default function SubmitBidPage({
       supplier_phone: form.supplier_phone || null,
       contact_person: form.contact_person || null,
 
-      pricing_model: form.pricing_model,
+      pricing_model: "multi_variant",
 
-      fixed_price_bgn_mwh: toNullableNumber(form.fixed_price_bgn_mwh),
-      day_ahead_adder_bgn_mwh: toNullableNumber(
-        form.day_ahead_adder_bgn_mwh
-      ),
-      balancing_adder_bgn_mwh: toNullableNumber(form.balancing_adder_bgn_mwh),
+      offer_fixed_enabled: form.offer_fixed_enabled,
+      offer_indexed_enabled: form.offer_indexed_enabled,
+      offer_hybrid_enabled: form.offer_hybrid_enabled,
 
-      hybrid_fixed_price_bgn_mwh: toNullableNumber(
-        form.hybrid_fixed_price_bgn_mwh
-      ),
-      hybrid_fixed_share_percent: toNullableNumber(
-        form.hybrid_fixed_share_percent
-      ),
-      hybrid_indexed_share_percent: toNullableNumber(
-        form.hybrid_indexed_share_percent
-      ),
+      fixed_price_bgn_mwh: form.offer_fixed_enabled
+        ? toNullableNumber(form.fixed_price_bgn_mwh)
+        : null,
 
-      estimated_total_bgn: estimatedTotalBgn,
+      day_ahead_adder_bgn_mwh: form.offer_indexed_enabled || form.offer_hybrid_enabled
+        ? toNullableNumber(form.day_ahead_adder_bgn_mwh)
+        : null,
+
+      balancing_adder_bgn_mwh: form.offer_indexed_enabled
+        ? toNullableNumber(form.balancing_adder_bgn_mwh)
+        : null,
+
+      hybrid_fixed_price_bgn_mwh: form.offer_hybrid_enabled
+        ? toNullableNumber(form.hybrid_fixed_price_bgn_mwh)
+        : null,
+
+      hybrid_fixed_share_percent: form.offer_hybrid_enabled
+        ? toNullableNumber(form.hybrid_fixed_share_percent)
+        : null,
+
+      hybrid_indexed_share_percent: form.offer_hybrid_enabled
+        ? toNullableNumber(form.hybrid_indexed_share_percent)
+        : null,
+
+      estimated_total_bgn: fixedTotalBgn,
+      indexed_estimated_total_bgn: indexedTotalBgn,
+      hybrid_estimated_total_bgn: hybridTotalBgn,
 
       contract_duration_months: auction?.duration_months || null,
       delivery_start: auction?.delivery_start || null,
-      delivery_end: calculateDeliveryEnd(
-        auction?.delivery_start,
-        auction?.duration_months
-      ),
+      delivery_end: deliveryEnd,
 
       valid_until: form.valid_until || null,
       payment_terms: form.payment_terms || null,
@@ -177,6 +246,49 @@ export default function SubmitBidPage({
     setMessage("Офертата е подадена успешно.");
   }
 
+  function calculateFixedTotalBgn() {
+    if (!form.offer_fixed_enabled) return null;
+
+    const quantityMwh = toNumber(auction?.quantity_mwh);
+    const price = toNumber(form.fixed_price_bgn_mwh);
+
+    if (!quantityMwh || !price) return null;
+
+    return quantityMwh * price;
+  }
+
+  function calculateIndexedTotalBgn() {
+    if (!form.offer_indexed_enabled) return null;
+
+    const quantityMwh = toNumber(auction?.quantity_mwh);
+    const capture = capturePriceBgnMwh || 0;
+    const adder = toNumber(form.day_ahead_adder_bgn_mwh);
+    const balancing = toNumber(form.balancing_adder_bgn_mwh);
+
+    if (!quantityMwh) return null;
+
+    return quantityMwh * (capture + adder + balancing);
+  }
+
+  function calculateHybridTotalBgn() {
+    if (!form.offer_hybrid_enabled) return null;
+
+    const quantityMwh = toNumber(auction?.quantity_mwh);
+    const fixedPrice = toNumber(form.hybrid_fixed_price_bgn_mwh);
+    const indexedPrice =
+      (capturePriceBgnMwh || 0) + toNumber(form.day_ahead_adder_bgn_mwh);
+
+    const fixedShare = toNumber(form.hybrid_fixed_share_percent) / 100;
+    const indexedShare = toNumber(form.hybrid_indexed_share_percent) / 100;
+
+    if (!quantityMwh || !fixedPrice) return null;
+
+    return (
+      quantityMwh * fixedPrice * fixedShare +
+      quantityMwh * indexedPrice * indexedShare
+    );
+  }
+
   if (loading) {
     return (
       <main style={pageStyle}>
@@ -195,90 +307,6 @@ export default function SubmitBidPage({
         </div>
       </main>
     );
-  }
-
-  const dayKwh = toNumber(
-    profile?.day_kwh ??
-      profile?.day_energy_kwh ??
-      invoice?.day_energy_kwh ??
-      invoice?.day_consumption_kwh ??
-      invoice?.day_kwh ??
-      invoice?.day_active_energy_kwh
-  );
-
-  const nightKwh = toNumber(
-    profile?.night_kwh ??
-      profile?.night_energy_kwh ??
-      invoice?.night_energy_kwh ??
-      invoice?.night_consumption_kwh ??
-      invoice?.night_kwh ??
-      invoice?.night_active_energy_kwh
-  );
-
-  const totalKwh =
-    toNumber(invoice?.total_energy_kwh) ||
-    toNumber(invoice?.total_consumption_mwh) * 1000 ||
-    dayKwh + nightKwh;
-
-  const dayShare = totalKwh > 0 ? dayKwh / totalKwh : safeShare(profile?.day_share);
-  const nightShare =
-    totalKwh > 0 ? nightKwh / totalKwh : safeShare(profile?.night_share);
-
-  const avgDayLoadKw =
-    toNumber(profile?.avg_day_load_kw) || calculateAverageLoad(dayKwh, 14, 28);
-
-  const avgNightLoadKw =
-    toNumber(profile?.avg_night_load_kw) ||
-    calculateAverageLoad(nightKwh, 10, 28);
-
-  const capturePriceEurMwh = toNumber(capture?.expected_capture_price_eur_mwh);
-  const capturePriceBgnMwh = capturePriceEurMwh
-    ? capturePriceEurMwh * BGN_TO_EUR
-    : null;
-
-  const profileDescription = buildProfileDescription(
-    dayShare,
-    nightShare,
-    avgDayLoadKw,
-    avgNightLoadKw
-  );
-
-  const deliveryEnd = calculateDeliveryEnd(
-    auction.delivery_start,
-    auction.duration_months
-  );
-
-  function calculateEstimatedTotalBgn() {
-    const quantityMwh = toNumber(auction?.quantity_mwh);
-
-    if (!quantityMwh) return null;
-
-    if (form.pricing_model === "fixed") {
-      const price = toNumber(form.fixed_price_bgn_mwh);
-      return price ? price * quantityMwh : null;
-    }
-
-    if (form.pricing_model === "day_ahead") {
-      const base = capturePriceBgnMwh || 0;
-      const adder = toNumber(form.day_ahead_adder_bgn_mwh);
-      const balancing = toNumber(form.balancing_adder_bgn_mwh);
-      return (base + adder + balancing) * quantityMwh;
-    }
-
-    if (form.pricing_model === "hybrid") {
-      const fixedPrice = toNumber(form.hybrid_fixed_price_bgn_mwh);
-      const indexedBase = capturePriceBgnMwh || 0;
-      const adder = toNumber(form.day_ahead_adder_bgn_mwh);
-      const fixedShare = toNumber(form.hybrid_fixed_share_percent) / 100;
-      const indexedShare = toNumber(form.hybrid_indexed_share_percent) / 100;
-
-      return (
-        fixedPrice * fixedShare * quantityMwh +
-        (indexedBase + adder) * indexedShare * quantityMwh
-      );
-    }
-
-    return null;
   }
 
   return (
@@ -317,14 +345,8 @@ export default function SubmitBidPage({
             <Info label="Capture price" value={formatEURPerMWh(capturePriceEurMwh)} />
             <Info label="Дневен дял" value={formatPercent(dayShare)} />
             <Info label="Нощен дял" value={formatPercent(nightShare)} />
-            <Info
-              label="Работи събота/неделя"
-              value={detectWeekendWork(profile, invoice)}
-            />
-            <Info
-              label="Профил"
-              value={profile?.profile_type || "Изчислен от фактура"}
-            />
+            <Info label="Работи събота/неделя" value={detectWeekendWork(profile, invoice)} />
+            <Info label="Профил" value={profile?.profile_type || "Изчислен от фактура"} />
           </div>
 
           <div style={descriptionBoxStyle}>
@@ -334,140 +356,157 @@ export default function SubmitBidPage({
         </section>
 
         <section style={cardStyle}>
-          <h2>Подай оферта</h2>
+          <h2>Данни за търговеца</h2>
 
-          <form onSubmit={submitBid}>
-            <div style={gridStyle}>
-              <Field
-                label="Име на доставчик"
-                value={form.supplier_name}
-                onChange={(value) => updateField("supplier_name", value)}
-                required
+          <div style={gridStyle}>
+            <Field
+              label="Име на доставчик"
+              value={form.supplier_name}
+              onChange={(value) => updateField("supplier_name", value)}
+              required
+            />
+
+            <Field
+              label="Лице за контакт"
+              value={form.contact_person}
+              onChange={(value) => updateField("contact_person", value)}
+            />
+
+            <Field
+              label="Имейл"
+              value={form.supplier_email}
+              onChange={(value) => updateField("supplier_email", value)}
+            />
+
+            <Field
+              label="Телефон"
+              value={form.supplier_phone}
+              onChange={(value) => updateField("supplier_phone", value)}
+            />
+
+            <Field
+              label="Валидна до"
+              type="date"
+              value={form.valid_until}
+              onChange={(value) => updateField("valid_until", value)}
+            />
+          </div>
+        </section>
+
+        <form onSubmit={submitBid}>
+          <section style={cardStyle}>
+            <h2>Варианти на офертата</h2>
+
+            <OfferBox title="Вариант 1: Фиксирана цена">
+              <Checkbox
+                label="Подавам оферта за фиксирана цена"
+                checked={form.offer_fixed_enabled}
+                onChange={(value) => updateField("offer_fixed_enabled", value)}
               />
 
-              <Field
-                label="Лице за контакт"
-                value={form.contact_person}
-                onChange={(value) => updateField("contact_person", value)}
-              />
+              <div style={gridStyle}>
+                <Field
+                  label="Фиксирана цена BGN/MWh"
+                  type="number"
+                  value={form.fixed_price_bgn_mwh}
+                  onChange={(value) => updateField("fixed_price_bgn_mwh", value)}
+                />
 
-              <Field
-                label="Имейл"
-                value={form.supplier_email}
-                onChange={(value) => updateField("supplier_email", value)}
-              />
-
-              <Field
-                label="Телефон"
-                value={form.supplier_phone}
-                onChange={(value) => updateField("supplier_phone", value)}
-              />
-
-              <div style={fieldStyle}>
-                <label style={labelStyle}>Ценови модел</label>
-                <select
-                  value={form.pricing_model}
-                  onChange={(e) => updateField("pricing_model", e.target.value)}
-                  style={inputStyle}
-                >
-                  <option value="fixed">Фиксирана цена</option>
-                  <option value="day_ahead">Борсова цена + добавка</option>
-                  <option value="hybrid">Хибридна цена</option>
-                </select>
+                <Info
+                  label="Прогнозна стойност"
+                  value={formatBGN(fixedTotalBgn)}
+                />
               </div>
+            </OfferBox>
 
-              <Field
-                label="Валидна до"
-                type="date"
-                value={form.valid_until}
-                onChange={(value) => updateField("valid_until", value)}
+            <OfferBox title="Вариант 2: Борсова цена + добавка">
+              <Checkbox
+                label="Подавам оферта за борсова цена + добавка"
+                checked={form.offer_indexed_enabled}
+                onChange={(value) => updateField("offer_indexed_enabled", value)}
               />
-            </div>
 
-            <div style={priceModelBoxStyle}>
-              {form.pricing_model === "fixed" && (
-                <div style={gridStyle}>
-                  <Field
-                    label="Фиксирана цена BGN/MWh"
-                    type="number"
-                    value={form.fixed_price_bgn_mwh}
-                    onChange={(value) =>
-                      updateField("fixed_price_bgn_mwh", value)
-                    }
-                    required
-                  />
-                </div>
-              )}
+              <div style={gridStyle}>
+                <Info
+                  label="Capture база"
+                  value={formatBGNPerMWh(capturePriceBgnMwh)}
+                />
 
-              {form.pricing_model === "day_ahead" && (
-                <div style={gridStyle}>
-                  <Field
-                    label="Day-ahead добавка BGN/MWh"
-                    type="number"
-                    value={form.day_ahead_adder_bgn_mwh}
-                    onChange={(value) =>
-                      updateField("day_ahead_adder_bgn_mwh", value)
-                    }
-                    required
-                  />
+                <Field
+                  label="Day-ahead добавка BGN/MWh"
+                  type="number"
+                  value={form.day_ahead_adder_bgn_mwh}
+                  onChange={(value) =>
+                    updateField("day_ahead_adder_bgn_mwh", value)
+                  }
+                />
 
-                  <Field
-                    label="Балансиране BGN/MWh"
-                    type="number"
-                    value={form.balancing_adder_bgn_mwh}
-                    onChange={(value) =>
-                      updateField("balancing_adder_bgn_mwh", value)
-                    }
-                  />
-                </div>
-              )}
+                <Field
+                  label="Балансиране BGN/MWh"
+                  type="number"
+                  value={form.balancing_adder_bgn_mwh}
+                  onChange={(value) =>
+                    updateField("balancing_adder_bgn_mwh", value)
+                  }
+                />
 
-              {form.pricing_model === "hybrid" && (
-                <div style={gridStyle}>
-                  <Field
-                    label="Фиксирана част BGN/MWh"
-                    type="number"
-                    value={form.hybrid_fixed_price_bgn_mwh}
-                    onChange={(value) =>
-                      updateField("hybrid_fixed_price_bgn_mwh", value)
-                    }
-                    required
-                  />
-
-                  <Field
-                    label="Фиксиран дял %"
-                    type="number"
-                    value={form.hybrid_fixed_share_percent}
-                    onChange={(value) =>
-                      updateField("hybrid_fixed_share_percent", value)
-                    }
-                  />
-
-                  <Field
-                    label="Борсов дял %"
-                    type="number"
-                    value={form.hybrid_indexed_share_percent}
-                    onChange={(value) =>
-                      updateField("hybrid_indexed_share_percent", value)
-                    }
-                  />
-
-                  <Field
-                    label="Борсова добавка BGN/MWh"
-                    type="number"
-                    value={form.day_ahead_adder_bgn_mwh}
-                    onChange={(value) =>
-                      updateField("day_ahead_adder_bgn_mwh", value)
-                    }
-                  />
-                </div>
-              )}
-
-              <div style={estimatedBoxStyle}>
-                <span>Прогнозна стойност</span>
-                <strong>{formatBGN(calculateEstimatedTotalBgn())}</strong>
+                <Info
+                  label="Прогнозна стойност"
+                  value={formatBGN(indexedTotalBgn)}
+                />
               </div>
-            </div>
+            </OfferBox>
+
+            <OfferBox title="Вариант 3: Хибридна цена">
+              <Checkbox
+                label="Подавам оферта за хибридна цена"
+                checked={form.offer_hybrid_enabled}
+                onChange={(value) => updateField("offer_hybrid_enabled", value)}
+              />
+
+              <div style={gridStyle}>
+                <Field
+                  label="Фиксирана част BGN/MWh"
+                  type="number"
+                  value={form.hybrid_fixed_price_bgn_mwh}
+                  onChange={(value) =>
+                    updateField("hybrid_fixed_price_bgn_mwh", value)
+                  }
+                />
+
+                <Field
+                  label="Фиксиран дял %"
+                  type="number"
+                  value={form.hybrid_fixed_share_percent}
+                  onChange={(value) =>
+                    updateField("hybrid_fixed_share_percent", value)
+                  }
+                />
+
+                <Field
+                  label="Борсов дял %"
+                  type="number"
+                  value={form.hybrid_indexed_share_percent}
+                  onChange={(value) =>
+                    updateField("hybrid_indexed_share_percent", value)
+                  }
+                />
+
+                <Info
+                  label="Борсова база"
+                  value={formatBGNPerMWh(capturePriceBgnMwh)}
+                />
+
+                <Info
+                  label="Прогнозна стойност"
+                  value={formatBGN(hybridTotalBgn)}
+                />
+              </div>
+            </OfferBox>
+          </section>
+
+          <section style={cardStyle}>
+            <h2>Общи условия</h2>
 
             <div style={checkboxGridStyle}>
               <Checkbox
@@ -522,10 +561,25 @@ export default function SubmitBidPage({
             <button type="submit" disabled={saving} style={submitButtonStyle}>
               {saving ? "Записване..." : "Подай оферта"}
             </button>
-          </form>
-        </section>
+          </section>
+        </form>
       </div>
     </main>
+  );
+}
+
+function OfferBox({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={offerBoxStyle}>
+      <h3>{title}</h3>
+      {children}
+    </div>
   );
 }
 
@@ -818,6 +872,14 @@ const descriptionBoxStyle: React.CSSProperties = {
   color: "#1e3a8a",
 };
 
+const offerBoxStyle: React.CSSProperties = {
+  marginTop: 22,
+  padding: 22,
+  borderRadius: 20,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+};
+
 const fieldStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -835,25 +897,6 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 14,
   border: "1px solid #cbd5e1",
   fontSize: 15,
-};
-
-const priceModelBoxStyle: React.CSSProperties = {
-  marginTop: 24,
-  padding: 20,
-  borderRadius: 20,
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-};
-
-const estimatedBoxStyle: React.CSSProperties = {
-  marginTop: 18,
-  padding: 16,
-  borderRadius: 16,
-  background: "white",
-  border: "1px solid #cbd5e1",
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 16,
 };
 
 const checkboxGridStyle: React.CSSProperties = {
