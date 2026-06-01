@@ -8,6 +8,12 @@ export default function MyAuctionsPage() {
 
   useEffect(() => {
     loadAuctions();
+
+    const timer = setInterval(() => {
+      setAuctions((current) => [...current]);
+    }, 60000);
+
+    return () => clearInterval(timer);
   }, []);
 
   async function loadAuctions() {
@@ -40,12 +46,16 @@ export default function MyAuctionsPage() {
           <article key={auction.id} style={cardStyle}>
             <div style={topRowStyle}>
               <div>
-                <div style={badgeStyle}>Активен търг</div>
+                <div style={badgeStyle}>
+                  {getAuctionStatus(auction.offer_deadline)}
+                </div>
 
-                <h2 style={companyStyle}>{auction.title}</h2>
+                <h2 style={companyStyle}>
+                  {auction.title || "Търг за електроенергия"}
+                </h2>
 
                 <p style={supplierStyle}>
-                  Номер: {auction.auction_number}
+                  Номер: {auction.auction_number || "—"}
                 </p>
               </div>
 
@@ -72,6 +82,22 @@ export default function MyAuctionsPage() {
                 label="Текущ доставчик"
                 value={auction.current_supplier || "-"}
               />
+
+              <Info
+                label="Начало доставка"
+                value={formatDate(auction.delivery_start)}
+              />
+
+              <Info
+                label="Краен срок оферти"
+                value={formatDateTime(auction.offer_deadline)}
+              />
+            </div>
+
+            <div style={countdownStyle}>
+              <span style={countdownLabelStyle}>Край след:</span>
+
+              <strong>{getTimeLeft(auction.offer_deadline)}</strong>
             </div>
 
             <div style={footerStyle}>
@@ -91,6 +117,56 @@ export default function MyAuctionsPage() {
       </section>
     </main>
   );
+}
+
+function getAuctionStatus(deadline?: string) {
+  if (!deadline) return "Активен търг";
+
+  const end = new Date(deadline).getTime();
+  const now = new Date().getTime();
+
+  if (end <= now) return "Изтекъл";
+
+  return "Активен";
+}
+
+function getTimeLeft(deadline?: string) {
+  if (!deadline) return "Няма срок";
+
+  const end = new Date(deadline).getTime();
+  const now = new Date().getTime();
+  const diff = end - now;
+
+  if (diff <= 0) return "Изтекъл";
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+  const minutes = Math.floor((diff / (1000 * 60)) % 60);
+
+  return `${days}д ${hours}ч ${minutes}м`;
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+
+  try {
+    return new Date(value).toLocaleDateString("bg-BG");
+  } catch {
+    return value;
+  }
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+
+  try {
+    return new Date(value).toLocaleString("bg-BG", {
+      dateStyle: "short",
+      timeStyle: "short",
+    });
+  } catch {
+    return value;
+  }
 }
 
 function Info({ label, value }: { label: string; value: string }) {
@@ -207,6 +283,21 @@ const infoLabelStyle: React.CSSProperties = {
   color: "#64748b",
   fontSize: 13,
   marginBottom: 6,
+};
+
+const countdownStyle: React.CSSProperties = {
+  marginTop: 22,
+  paddingTop: 18,
+  borderTop: "1px solid #e2e8f0",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  color: "#0f172a",
+  fontWeight: 700,
+};
+
+const countdownLabelStyle: React.CSSProperties = {
+  color: "#64748b",
 };
 
 const footerStyle: React.CSSProperties = {
