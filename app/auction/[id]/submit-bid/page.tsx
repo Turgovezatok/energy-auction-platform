@@ -6,17 +6,14 @@ import { supabase } from "../../../../lib/supabase";
 
 const BGN_TO_EUR = 1.95583;
 
-export default function SubmitBidPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function SubmitBidPage({ params }: { params: { id: string } }) {
   const [auction, setAuction] = useState<any>(null);
   const [invoice, setInvoice] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [capture, setCapture] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState("");
 
   const [form, setForm] = useState({
@@ -24,19 +21,21 @@ export default function SubmitBidPage({
     supplier_email: "",
     supplier_phone: "",
     contact_person: "",
-    valid_until: "",
 
     offer_fixed_enabled: true,
     fixed_price_bgn_mwh: "",
+    fixed_valid_until: "",
 
     offer_indexed_enabled: true,
     day_ahead_adder_bgn_mwh: "",
     balancing_adder_bgn_mwh: "",
+    indexed_valid_until: "",
 
     offer_hybrid_enabled: true,
     hybrid_fixed_price_bgn_mwh: "",
     hybrid_fixed_share_percent: "50",
     hybrid_indexed_share_percent: "50",
+    hybrid_valid_until: "",
 
     payment_terms: "",
     notes: "",
@@ -87,9 +86,7 @@ export default function SubmitBidPage({
         const response = await fetch("/api/calculate-capture", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            invoiceId: auctionData.source_invoice_id,
-          }),
+          body: JSON.stringify({ invoiceId: auctionData.source_invoice_id }),
         });
 
         const result = await response.json();
@@ -106,6 +103,8 @@ export default function SubmitBidPage({
   }
 
   function updateField(name: string, value: any) {
+    if (submitted || saving) return;
+
     setForm((current) => ({
       ...current,
       [name]: value,
@@ -172,6 +171,9 @@ export default function SubmitBidPage({
 
   async function submitBid(event: React.FormEvent) {
     event.preventDefault();
+
+    if (submitted) return;
+
     setSaving(true);
     setMessage("");
 
@@ -192,13 +194,21 @@ export default function SubmitBidPage({
       fixed_price_bgn_mwh: form.offer_fixed_enabled
         ? toNullableNumber(form.fixed_price_bgn_mwh)
         : null,
-
-      day_ahead_adder_bgn_mwh: form.offer_indexed_enabled || form.offer_hybrid_enabled
-        ? toNullableNumber(form.day_ahead_adder_bgn_mwh)
+      fixed_valid_until: form.offer_fixed_enabled
+        ? toIsoDateTime(form.fixed_valid_until)
         : null,
+
+      day_ahead_adder_bgn_mwh:
+        form.offer_indexed_enabled || form.offer_hybrid_enabled
+          ? toNullableNumber(form.day_ahead_adder_bgn_mwh)
+          : null,
 
       balancing_adder_bgn_mwh: form.offer_indexed_enabled
         ? toNullableNumber(form.balancing_adder_bgn_mwh)
+        : null,
+
+      indexed_valid_until: form.offer_indexed_enabled
+        ? toIsoDateTime(form.indexed_valid_until)
         : null,
 
       hybrid_fixed_price_bgn_mwh: form.offer_hybrid_enabled
@@ -213,6 +223,10 @@ export default function SubmitBidPage({
         ? toNullableNumber(form.hybrid_indexed_share_percent)
         : null,
 
+      hybrid_valid_until: form.offer_hybrid_enabled
+        ? toIsoDateTime(form.hybrid_valid_until)
+        : null,
+
       estimated_total_bgn: fixedTotalBgn,
       indexed_estimated_total_bgn: indexedTotalBgn,
       hybrid_estimated_total_bgn: hybridTotalBgn,
@@ -221,7 +235,7 @@ export default function SubmitBidPage({
       delivery_start: auction?.delivery_start || null,
       delivery_end: deliveryEnd,
 
-      valid_until: form.valid_until || null,
+      valid_until: null,
       payment_terms: form.payment_terms || null,
       notes: form.notes || null,
 
@@ -233,7 +247,9 @@ export default function SubmitBidPage({
       weekend_included: form.weekend_included,
 
       profile_comment: profileDescription,
-      status: "submitted",
+      status: "submitted_locked",
+      is_locked: true,
+      locked_at: new Date().toISOString(),
     });
 
     setSaving(false);
@@ -243,7 +259,8 @@ export default function SubmitBidPage({
       return;
     }
 
-    setMessage("Офертата е подадена успешно.");
+    setSubmitted(true);
+    setMessage("Офертата е подадена успешно и е заключена. Не може да бъде редактирана.");
   }
 
   function calculateFixedTotalBgn() {
@@ -355,219 +372,97 @@ export default function SubmitBidPage({
           </div>
         </section>
 
-        <section style={cardStyle}>
-          <h2>Данни за търговеца</h2>
-
-          <div style={gridStyle}>
-            <Field
-              label="Име на доставчик"
-              value={form.supplier_name}
-              onChange={(value) => updateField("supplier_name", value)}
-              required
-            />
-
-            <Field
-              label="Лице за контакт"
-              value={form.contact_person}
-              onChange={(value) => updateField("contact_person", value)}
-            />
-
-            <Field
-              label="Имейл"
-              value={form.supplier_email}
-              onChange={(value) => updateField("supplier_email", value)}
-            />
-
-            <Field
-              label="Телефон"
-              value={form.supplier_phone}
-              onChange={(value) => updateField("supplier_phone", value)}
-            />
-
-            <Field
-              label="Валидна до"
-              type="date"
-              value={form.valid_until}
-              onChange={(value) => updateField("valid_until", value)}
-            />
-          </div>
-        </section>
-
-        <form onSubmit={submitBid}>
-          <section style={cardStyle}>
-            <h2>Варианти на офертата</h2>
-
-            <OfferBox title="Вариант 1: Фиксирана цена">
-              <Checkbox
-                label="Подавам оферта за фиксирана цена"
-                checked={form.offer_fixed_enabled}
-                onChange={(value) => updateField("offer_fixed_enabled", value)}
-              />
-
-              <div style={gridStyle}>
-                <Field
-                  label="Фиксирана цена BGN/MWh"
-                  type="number"
-                  value={form.fixed_price_bgn_mwh}
-                  onChange={(value) => updateField("fixed_price_bgn_mwh", value)}
-                />
-
-                <Info
-                  label="Прогнозна стойност"
-                  value={formatBGN(fixedTotalBgn)}
-                />
-              </div>
-            </OfferBox>
-
-            <OfferBox title="Вариант 2: Борсова цена + добавка">
-              <Checkbox
-                label="Подавам оферта за борсова цена + добавка"
-                checked={form.offer_indexed_enabled}
-                onChange={(value) => updateField("offer_indexed_enabled", value)}
-              />
-
-              <div style={gridStyle}>
-                <Info
-                  label="Capture база"
-                  value={formatBGNPerMWh(capturePriceBgnMwh)}
-                />
-
-                <Field
-                  label="Day-ahead добавка BGN/MWh"
-                  type="number"
-                  value={form.day_ahead_adder_bgn_mwh}
-                  onChange={(value) =>
-                    updateField("day_ahead_adder_bgn_mwh", value)
-                  }
-                />
-
-                <Field
-                  label="Балансиране BGN/MWh"
-                  type="number"
-                  value={form.balancing_adder_bgn_mwh}
-                  onChange={(value) =>
-                    updateField("balancing_adder_bgn_mwh", value)
-                  }
-                />
-
-                <Info
-                  label="Прогнозна стойност"
-                  value={formatBGN(indexedTotalBgn)}
-                />
-              </div>
-            </OfferBox>
-
-            <OfferBox title="Вариант 3: Хибридна цена">
-              <Checkbox
-                label="Подавам оферта за хибридна цена"
-                checked={form.offer_hybrid_enabled}
-                onChange={(value) => updateField("offer_hybrid_enabled", value)}
-              />
-
-              <div style={gridStyle}>
-                <Field
-                  label="Фиксирана част BGN/MWh"
-                  type="number"
-                  value={form.hybrid_fixed_price_bgn_mwh}
-                  onChange={(value) =>
-                    updateField("hybrid_fixed_price_bgn_mwh", value)
-                  }
-                />
-
-                <Field
-                  label="Фиксиран дял %"
-                  type="number"
-                  value={form.hybrid_fixed_share_percent}
-                  onChange={(value) =>
-                    updateField("hybrid_fixed_share_percent", value)
-                  }
-                />
-
-                <Field
-                  label="Борсов дял %"
-                  type="number"
-                  value={form.hybrid_indexed_share_percent}
-                  onChange={(value) =>
-                    updateField("hybrid_indexed_share_percent", value)
-                  }
-                />
-
-                <Info
-                  label="Борсова база"
-                  value={formatBGNPerMWh(capturePriceBgnMwh)}
-                />
-
-                <Info
-                  label="Прогнозна стойност"
-                  value={formatBGN(hybridTotalBgn)}
-                />
-              </div>
-            </OfferBox>
+        {submitted && (
+          <section style={lockedNoticeStyle}>
+            <h2>Офертата е заключена</h2>
+            <p>
+              Подадената оферта е записана като окончателна и не може да бъде
+              редактирана през тази форма.
+            </p>
           </section>
+        )}
 
-          <section style={cardStyle}>
-            <h2>Общи условия</h2>
+        {!submitted && (
+          <>
+            <section style={cardStyle}>
+              <h2>Данни за търговеца</h2>
 
-            <div style={checkboxGridStyle}>
-              <Checkbox
-                label="Цената включва ДДС"
-                checked={form.vat_included}
-                onChange={(value) => updateField("vat_included", value)}
-              />
+              <div style={gridStyle}>
+                <Field label="Име на доставчик" value={form.supplier_name} onChange={(value) => updateField("supplier_name", value)} required />
+                <Field label="Лице за контакт" value={form.contact_person} onChange={(value) => updateField("contact_person", value)} />
+                <Field label="Имейл" value={form.supplier_email} onChange={(value) => updateField("supplier_email", value)} />
+                <Field label="Телефон" value={form.supplier_phone} onChange={(value) => updateField("supplier_phone", value)} />
+              </div>
+            </section>
 
-              <Checkbox
-                label="Включени мрежови компоненти"
-                checked={form.includes_network_components}
-                onChange={(value) =>
-                  updateField("includes_network_components", value)
-                }
-              />
+            <form onSubmit={submitBid}>
+              <section style={cardStyle}>
+                <h2>Варианти на офертата</h2>
 
-              <Checkbox
-                label="Включено балансиране"
-                checked={form.includes_balancing}
-                onChange={(value) => updateField("includes_balancing", value)}
-              />
+                <OfferBox title="Вариант 1: Фиксирана цена">
+                  <Checkbox label="Подавам оферта за фиксирана цена" checked={form.offer_fixed_enabled} onChange={(value) => updateField("offer_fixed_enabled", value)} />
 
-              <Checkbox
-                label="Зелена енергия"
-                checked={form.includes_green_energy}
-                onChange={(value) => updateField("includes_green_energy", value)}
-              />
+                  <div style={gridStyle}>
+                    <Field label="Фиксирана цена BGN/MWh" type="number" value={form.fixed_price_bgn_mwh} onChange={(value) => updateField("fixed_price_bgn_mwh", value)} />
+                    <Field label="Валидна до дата и час" type="datetime-local" value={form.fixed_valid_until} onChange={(value) => updateField("fixed_valid_until", value)} />
+                    <Info label="Прогнозна стойност" value={formatBGN(fixedTotalBgn)} />
+                  </div>
+                </OfferBox>
 
-              <Checkbox
-                label="Офертата отчита работа събота/неделя"
-                checked={form.weekend_included}
-                onChange={(value) => updateField("weekend_included", value)}
-              />
-            </div>
+                <OfferBox title="Вариант 2: Борсова цена + добавка">
+                  <Checkbox label="Подавам оферта за борсова цена + добавка" checked={form.offer_indexed_enabled} onChange={(value) => updateField("offer_indexed_enabled", value)} />
 
-            <div style={gridStyle}>
-              <Field
-                label="Условия на плащане"
-                value={form.payment_terms}
-                onChange={(value) => updateField("payment_terms", value)}
-              />
+                  <div style={gridStyle}>
+                    <Info label="Capture база" value={formatBGNPerMWh(capturePriceBgnMwh)} />
+                    <Field label="Day-ahead добавка BGN/MWh" type="number" value={form.day_ahead_adder_bgn_mwh} onChange={(value) => updateField("day_ahead_adder_bgn_mwh", value)} />
+                    <Field label="Балансиране BGN/MWh" type="number" value={form.balancing_adder_bgn_mwh} onChange={(value) => updateField("balancing_adder_bgn_mwh", value)} />
+                    <Field label="Валидна до дата и час" type="datetime-local" value={form.indexed_valid_until} onChange={(value) => updateField("indexed_valid_until", value)} />
+                    <Info label="Прогнозна стойност" value={formatBGN(indexedTotalBgn)} />
+                  </div>
+                </OfferBox>
 
-              <Field
-                label="Бележки"
-                value={form.notes}
-                onChange={(value) => updateField("notes", value)}
-              />
-            </div>
+                <OfferBox title="Вариант 3: Хибридна цена">
+                  <Checkbox label="Подавам оферта за хибридна цена" checked={form.offer_hybrid_enabled} onChange={(value) => updateField("offer_hybrid_enabled", value)} />
 
-            {message && <div style={messageStyle}>{message}</div>}
+                  <div style={gridStyle}>
+                    <Field label="Фиксирана част BGN/MWh" type="number" value={form.hybrid_fixed_price_bgn_mwh} onChange={(value) => updateField("hybrid_fixed_price_bgn_mwh", value)} />
+                    <Field label="Фиксиран дял %" type="number" value={form.hybrid_fixed_share_percent} onChange={(value) => updateField("hybrid_fixed_share_percent", value)} />
+                    <Field label="Борсов дял %" type="number" value={form.hybrid_indexed_share_percent} onChange={(value) => updateField("hybrid_indexed_share_percent", value)} />
+                    <Field label="Валидна до дата и час" type="datetime-local" value={form.hybrid_valid_until} onChange={(value) => updateField("hybrid_valid_until", value)} />
+                    <Info label="Борсова база" value={formatBGNPerMWh(capturePriceBgnMwh)} />
+                    <Info label="Прогнозна стойност" value={formatBGN(hybridTotalBgn)} />
+                  </div>
+                </OfferBox>
+              </section>
 
-            <button type="submit" disabled={saving} style={submitButtonStyle}>
-              {saving ? "Записване..." : "Подай оферта"}
-            </button>
-          </section>
-        </form>
+              <section style={cardStyle}>
+                <h2>Общи условия</h2>
+
+                <div style={checkboxGridStyle}>
+                  <Checkbox label="Цената включва ДДС" checked={form.vat_included} onChange={(value) => updateField("vat_included", value)} />
+                  <Checkbox label="Включени мрежови компоненти" checked={form.includes_network_components} onChange={(value) => updateField("includes_network_components", value)} />
+                  <Checkbox label="Включено балансиране" checked={form.includes_balancing} onChange={(value) => updateField("includes_balancing", value)} />
+                  <Checkbox label="Зелена енергия" checked={form.includes_green_energy} onChange={(value) => updateField("includes_green_energy", value)} />
+                  <Checkbox label="Офертата отчита работа събота/неделя" checked={form.weekend_included} onChange={(value) => updateField("weekend_included", value)} />
+                </div>
+
+                <div style={gridStyle}>
+                  <Field label="Условия на плащане" value={form.payment_terms} onChange={(value) => updateField("payment_terms", value)} />
+                  <Field label="Бележки" value={form.notes} onChange={(value) => updateField("notes", value)} />
+                </div>
+
+                {message && <div style={messageStyle}>{message}</div>}
+
+                <button type="submit" disabled={saving} style={submitButtonStyle}>
+                  {saving ? "Записване..." : "Подай и заключи офертата"}
+                </button>
+              </section>
+            </form>
+          </>
+        )}
+
+        {submitted && message && <div style={messageStyle}>{message}</div>}
       </div>
-    </main>
-  );
-}
-
 function OfferBox({
   title,
   children,
@@ -634,6 +529,11 @@ function calculateDeliveryEnd(startDate: string, months: number) {
   date.setDate(date.getDate() - 1);
 
   return date.toISOString().slice(0, 10);
+}
+
+function toIsoDateTime(value: string) {
+  if (!value) return null;
+  return new Date(value).toISOString();
 }
 
 function toNumber(value: any) {
@@ -842,6 +742,15 @@ const cardStyle: React.CSSProperties = {
   marginTop: 26,
 };
 
+const lockedNoticeStyle: React.CSSProperties = {
+  background: "#ecfdf5",
+  padding: 28,
+  borderRadius: 24,
+  border: "1px solid #86efac",
+  color: "#065f46",
+  marginTop: 26,
+};
+
 const gridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
@@ -935,3 +844,6 @@ const submitButtonStyle: React.CSSProperties = {
   fontWeight: 800,
   cursor: "pointer",
 };
+    </main>
+  );
+}
