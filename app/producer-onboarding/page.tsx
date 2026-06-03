@@ -135,7 +135,7 @@ export default function ProducerOnboardingPage() {
                 <Info label="Производител" value={selectedPlant.company_name} />
                 <Info label="Избран обект" value={selectedPlant.plant_name} />
                 <Info label="Адрес" value={selectedPlant.location} />
-                <Info label="Инсталирана мощност" value={`${selectedPlant.installed_capacity_kw || "—"} kW`} />
+                <Info label="Инсталирана мощност" value={`${selectedPlant.installed_capacity_мw || "—"} kW`} />
                 <Info label="Технология" value={selectedPlant.technology || "—"} />
                 <Info label="Вид енергия" value={selectedPlant.energy_type || "—"} />
                 <Info label="Дата на въвеждане" value={selectedPlant.commissioning_date || "—"} />
@@ -165,7 +165,7 @@ export default function ProducerOnboardingPage() {
                         <div>
                           <strong>{plant.plant_name || "Обект без име"}</strong>
                           <span style={plantMetaStyle}>
-                            {plant.technology || "—"} • {plant.installed_capacity_kw || "—"} MW •{" "}
+                            {plant.technology || "—"} • {plant.installed_capacity_мw || "—"} MW •{" "}
                             {formatNumber(plant.total_production_mwh)} MWh
                           </span>
                         </div>
