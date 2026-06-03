@@ -165,7 +165,7 @@ export default function ProducerOnboardingPage() {
                         <div>
                           <strong>{plant.plant_name || "Обект без име"}</strong>
                           <span style={plantMetaStyle}>
-                            {plant.technology || "—"} • {plant.installed_capacity_kw || "—"} kW •{" "}
+                            {plant.technology || "—"} • {plant.installed_capacity_kw || "—"} MW •{" "}
                             {formatNumber(plant.total_production_mwh)} MWh
                           </span>
                         </div>
@@ -255,7 +255,7 @@ export default function ProducerOnboardingPage() {
               <Field label="Име на фирма" />
               <Field label="Име на централа" />
               <Field label="Тип централа" />
-              <Field label="Инсталирана мощност kW" />
+              <Field label="Инсталирана мощност MW" />
               <Field label="Локация" />
               <Field label="Имейл" type="email" />
               <Field label="Мобилен телефон" type="tel" />
@@ -286,7 +286,7 @@ function groupByPlant(records: any[]) {
         company_name: row.company_name,
         plant_name: row.plant_name,
         location: row.location,
-        installed_capacity_kw: row.installed_capacity_kw,
+        installed_capacity_Mw: row.installed_capacity_Mw,
         technology: row.technology,
         energy_type: row.energy_type,
         commissioning_date: row.commissioning_date,
