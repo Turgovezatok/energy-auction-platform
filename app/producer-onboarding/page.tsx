@@ -5,17 +5,24 @@ import { supabase } from "../../lib/supabase";
 
 export default function ProducerOnboardingPage() {
   const [companyEik, setCompanyEik] = useState("");
-  const [producers, setProducers] = useState<any[]>([]);
-  const [selectedProducer, setSelectedProducer] = useState<any>(null);
+  const [records, setRecords] = useState<any[]>([]);
+  const [selectedPlantKey, setSelectedPlantKey] = useState("");
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+
+  const [contact, setContact] = useState({
+    contact_person: "",
+    contact_email: "",
+    contact_phone: "",
+  });
 
   async function searchProducer() {
     setLoading(true);
     setMessage("");
-    setProducers([]);
-    setSelectedProducer(null);
+    setRecords([]);
+    setSelectedPlantKey("");
     setSearched(false);
 
     const cleanEik = companyEik.trim();
@@ -30,7 +37,8 @@ export default function ProducerOnboardingPage() {
       .from("producers")
       .select("*")
       .eq("company_eik", cleanEik)
-      .order("installed_capacity_kw", { ascending: false });
+      .order("plant_name", { ascending: true })
+      .order("period_from", { ascending: true });
 
     setLoading(false);
     setSearched(true);
@@ -41,29 +49,61 @@ export default function ProducerOnboardingPage() {
     }
 
     if (!data || data.length === 0) {
-      setMessage(
-        "Не е намерен производител с този ЕИК. Може да продължиш с ръчно въвеждане."
-      );
+      setMessage("Не е намерен производител с този ЕИК.");
       return;
     }
 
-    setProducers(data);
-    setSelectedProducer(data[0]);
-    setMessage(`Намерени са ${data.length} обекта за този ЕИК.`);
+    setRecords(data);
+
+    const firstKey = makePlantKey(data[0]);
+    setSelectedPlantKey(firstKey);
+
+    setMessage(`Намерени са ${data.length} записа в базата.`);
+  }
+
+  const groupedPlants = groupByPlant(records);
+  const selectedPlant = groupedPlants.find((plant) => plant.key === selectedPlantKey);
+
+  async function saveContact() {
+    if (!selectedPlant) return;
+
+    if (!contact.contact_email || !contact.contact_phone) {
+      setMessage("Имейл и мобилен телефон са задължителни.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+
+    const { error } = await supabase
+      .from("producers")
+      .update({
+        contact_person: contact.contact_person || null,
+        contact_email: contact.contact_email,
+        contact_phone: contact.contact_phone,
+      })
+      .eq("company_eik", selectedPlant.company_eik)
+      .eq("plant_name", selectedPlant.plant_name);
+
+    setSaving(false);
+
+    if (error) {
+      setMessage(`Грешка при запис: ${error.message}`);
+      return;
+    }
+
+    setMessage("Контактните данни са записани успешно.");
   }
 
   return (
     <main style={pageStyle}>
       <div style={containerStyle}>
         <section style={heroStyle}>
-          <div>
-            <div style={badgeStyle}>Producer onboarding</div>
-            <h1 style={{ margin: "10px 0" }}>Регистрация на производител</h1>
-            <p style={mutedWhiteStyle}>
-              Въведи ЕИК, за да проверим дали производителят вече съществува в
-              базата.
-            </p>
-          </div>
+          <div style={badgeStyle}>Producer onboarding</div>
+          <h1 style={{ margin: "10px 0" }}>Регистрация на производител</h1>
+          <p style={mutedWhiteStyle}>
+            Въведи ЕИК, за да намерим всички централи и месечни производства от базата.
+          </p>
         </section>
 
         <section style={cardStyle}>
@@ -73,7 +113,7 @@ export default function ProducerOnboardingPage() {
             <input
               value={companyEik}
               onChange={(event) => setCompanyEik(event.target.value)}
-              placeholder="Например: 123456789"
+              placeholder="Например: 201166767"
               style={inputStyle}
             />
 
@@ -85,101 +125,143 @@ export default function ProducerOnboardingPage() {
           {message && <div style={messageStyle}>{message}</div>}
         </section>
 
-        {selectedProducer && (
-          <section style={cardStyle}>
-            <h2>Намерени данни</h2>
+        {selectedPlant && (
+          <>
+            <section style={cardStyle}>
+              <h2>Данни за производителя</h2>
 
-            <div style={gridStyle}>
-              <Info label="ЕИК" value={selectedProducer.company_eik || "—"} />
-              <Info label="Фирма" value={selectedProducer.company_name || "—"} />
-              <Info
-                label="Избран обект"
-                value={selectedProducer.plant_name || "—"}
-              />
-              <Info
-                label="Технология"
-                value={
-                  selectedProducer.technology ||
-                  selectedProducer.plant_type ||
-                  "—"
-                }
-              />
-              <Info
-                label="Инсталирана мощност"
-                value={
-                  selectedProducer.installed_capacity_kw
-                    ? `${selectedProducer.installed_capacity_kw} kW`
-                    : "—"
-                }
-              />
-              <Info label="Локация" value={selectedProducer.location || "—"} />
-              <Info
-                label="Вид енергия"
-                value={selectedProducer.energy_type || "—"}
-              />
-              <Info
-                label="Мрежови оператор"
-                value={selectedProducer.grid_operator || "—"}
-              />
-              <Info label="EIC код" value={selectedProducer.eic_code || "—"} />
-            </div>
-
-            {producers.length > 1 && (
-              <div style={plantsListStyle}>
-                <h3>Обекти към този производител</h3>
-
-                {producers.map((item) => {
-                  const selected = selectedProducer?.id === item.id;
-
-                  return (
-                    <button
-                      key={item.id || `${item.company_eik}-${item.plant_name}`}
-                      type="button"
-                      onClick={() => setSelectedProducer(item)}
-                      style={{
-                        ...plantButtonStyle,
-                        ...(selected ? selectedPlantButtonStyle : {}),
-                      }}
-                    >
-                      <div>
-                        <strong>{item.plant_name || "Обект без име"}</strong>
-                        <span style={plantMetaStyle}>
-                          {item.technology || "—"} •{" "}
-                          {item.installed_capacity_kw || "—"} kW
-                        </span>
-                      </div>
-
-                      {selected && <span style={selectedBadgeStyle}>Избран</span>}
-                    </button>
-                  );
-                })}
+              <div style={gridStyle}>
+                <Info label="ЕИК" value={selectedPlant.company_eik} />
+                <Info label="Производител" value={selectedPlant.company_name} />
+                <Info label="Избран обект" value={selectedPlant.plant_name} />
+                <Info label="Адрес" value={selectedPlant.location} />
+                <Info label="Инсталирана мощност" value={`${selectedPlant.installed_capacity_kw || "—"} kW`} />
+                <Info label="Технология" value={selectedPlant.technology || "—"} />
+                <Info label="Вид енергия" value={selectedPlant.energy_type || "—"} />
+                <Info label="Дата на въвеждане" value={selectedPlant.commissioning_date || "—"} />
+                <Info label="Схеми за подпомагане" value={selectedPlant.support_scheme || "—"} />
+                <Info label="Общо произведена енергия" value={`${formatNumber(selectedPlant.total_production_mwh)} MWh`} />
               </div>
+            </section>
+
+            {groupedPlants.length > 1 && (
+              <section style={cardStyle}>
+                <h2>Обекти към този производител</h2>
+
+                <div style={plantsListStyle}>
+                  {groupedPlants.map((plant) => {
+                    const selected = plant.key === selectedPlantKey;
+
+                    return (
+                      <button
+                        key={plant.key}
+                        type="button"
+                        onClick={() => setSelectedPlantKey(plant.key)}
+                        style={{
+                          ...plantButtonStyle,
+                          ...(selected ? selectedPlantButtonStyle : {}),
+                        }}
+                      >
+                        <div>
+                          <strong>{plant.plant_name || "Обект без име"}</strong>
+                          <span style={plantMetaStyle}>
+                            {plant.technology || "—"} • {plant.installed_capacity_kw || "—"} kW •{" "}
+                            {formatNumber(plant.total_production_mwh)} MWh
+                          </span>
+                        </div>
+
+                        {selected && <span style={selectedBadgeStyle}>Избран</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
             )}
 
-            <button style={primaryButtonStyle}>
-              Продължи с този производител
-            </button>
-          </section>
+            <section style={cardStyle}>
+              <h2>Месечно производство</h2>
+
+              <div style={tableWrapperStyle}>
+                <table style={tableStyle}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Период от</th>
+                      <th style={thStyle}>Период до</th>
+                      <th style={thStyle}>Произведена енергия</th>
+                      <th style={thStyle}>Схема</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {selectedPlant.records.map((row: any) => (
+                      <tr key={row.id || `${row.period_from}-${row.period_to}`}>
+                        <td style={tdStyle}>{row.period_from || "—"}</td>
+                        <td style={tdStyle}>{row.period_to || "—"}</td>
+                        <td style={tdStyle}>{formatNumber(row.production_mwh)} MWh</td>
+                        <td style={tdStyle}>{row.support_scheme || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section style={cardStyle}>
+              <h2>Контактни данни</h2>
+
+              <div style={gridStyle}>
+                <Field
+                  label="Лице за контакт"
+                  value={contact.contact_person}
+                  onChange={(value) =>
+                    setContact((current) => ({ ...current, contact_person: value }))
+                  }
+                />
+
+                <Field
+                  label="Имейл"
+                  type="email"
+                  required
+                  value={contact.contact_email}
+                  onChange={(value) =>
+                    setContact((current) => ({ ...current, contact_email: value }))
+                  }
+                />
+
+                <Field
+                  label="Мобилен телефон"
+                  type="tel"
+                  required
+                  value={contact.contact_phone}
+                  onChange={(value) =>
+                    setContact((current) => ({ ...current, contact_phone: value }))
+                  }
+                />
+              </div>
+
+              <button onClick={saveContact} disabled={saving} style={primaryButtonStyle}>
+                {saving ? "Записване..." : "Продължи с този производител"}
+              </button>
+            </section>
+          </>
         )}
 
-        {searched && !selectedProducer && (
+        {searched && records.length === 0 && (
           <section style={cardStyle}>
             <h2>Ръчно въвеждане</h2>
 
             <div style={gridStyle}>
-              <Field label="ЕИК" value={companyEik} />
+              <Field label="ЕИК" value={companyEik} onChange={setCompanyEik} />
               <Field label="Име на фирма" />
               <Field label="Име на централа" />
               <Field label="Тип централа" />
               <Field label="Инсталирана мощност kW" />
               <Field label="Локация" />
-              <Field label="Мрежови оператор" />
-              <Field label="EIC код" />
+              <Field label="Имейл" type="email" />
+              <Field label="Мобилен телефон" type="tel" />
             </div>
 
-            <button style={primaryButtonStyle}>
-              Продължи с ръчно въведени данни
-            </button>
+            <button style={primaryButtonStyle}>Продължи с ръчно въведени данни</button>
           </section>
         )}
       </div>
@@ -187,20 +269,82 @@ export default function ProducerOnboardingPage() {
   );
 }
 
+function makePlantKey(row: any) {
+  return `${row.company_eik || ""}__${row.plant_name || ""}__${row.location || ""}`;
+}
+
+function groupByPlant(records: any[]) {
+  const map = new Map<string, any>();
+
+  for (const row of records) {
+    const key = makePlantKey(row);
+
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        company_eik: row.company_eik,
+        company_name: row.company_name,
+        plant_name: row.plant_name,
+        location: row.location,
+        installed_capacity_kw: row.installed_capacity_kw,
+        technology: row.technology,
+        energy_type: row.energy_type,
+        commissioning_date: row.commissioning_date,
+        support_scheme: row.support_scheme,
+        total_production_mwh: 0,
+        records: [],
+      });
+    }
+
+    const plant = map.get(key);
+    plant.records.push(row);
+    plant.total_production_mwh += Number(row.production_mwh || 0);
+  }
+
+  return Array.from(map.values());
+}
+
+function formatNumber(value: any) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "—";
+
+  return number.toLocaleString("bg-BG", {
+    maximumFractionDigits: 3,
+  });
+}
+
 function Info({ label, value }: { label: string; value: any }) {
   return (
     <div style={infoStyle}>
       <span style={labelStyle}>{label}</span>
-      <strong>{value}</strong>
+      <strong>{value || "—"}</strong>
     </div>
   );
 }
 
-function Field({ label, value = "" }: { label: string; value?: string }) {
+function Field({
+  label,
+  value = "",
+  onChange,
+  type = "text",
+  required = false,
+}: {
+  label: string;
+  value?: string;
+  onChange?: (value: string) => void;
+  type?: string;
+  required?: boolean;
+}) {
   return (
     <div style={fieldStyle}>
       <label style={fieldLabelStyle}>{label}</label>
-      <input defaultValue={value} style={inputStyle} />
+      <input
+        type={type}
+        value={value}
+        required={required}
+        onChange={(event) => onChange?.(event.target.value)}
+        style={inputStyle}
+      />
     </div>
   );
 }
@@ -213,7 +357,7 @@ const pageStyle: React.CSSProperties = {
 };
 
 const containerStyle: React.CSSProperties = {
-  maxWidth: 1100,
+  maxWidth: 1150,
   margin: "0 auto",
 };
 
@@ -292,7 +436,7 @@ const messageStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
   gap: 16,
   marginTop: 18,
 };
@@ -323,9 +467,9 @@ const fieldLabelStyle: React.CSSProperties = {
 };
 
 const plantsListStyle: React.CSSProperties = {
-  marginTop: 24,
   display: "grid",
   gap: 12,
+  marginTop: 18,
 };
 
 const plantButtonStyle: React.CSSProperties = {
@@ -360,4 +504,26 @@ const selectedBadgeStyle: React.CSSProperties = {
   color: "white",
   fontWeight: 800,
   fontSize: 13,
+};
+
+const tableWrapperStyle: React.CSSProperties = {
+  overflowX: "auto",
+  marginTop: 18,
+};
+
+const tableStyle: React.CSSProperties = {
+  width: "100%",
+  borderCollapse: "collapse",
+};
+
+const thStyle: React.CSSProperties = {
+  textAlign: "left",
+  padding: 12,
+  background: "#f1f5f9",
+  borderBottom: "1px solid #e2e8f0",
+};
+
+const tdStyle: React.CSSProperties = {
+  padding: 12,
+  borderBottom: "1px solid #e2e8f0",
 };
