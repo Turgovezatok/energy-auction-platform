@@ -7,6 +7,7 @@ export default function ProducerOnboardingPage() {
   const [companyEik, setCompanyEik] = useState("");
   const [records, setRecords] = useState<any[]>([]);
   const [selectedPlantKey, setSelectedPlantKey] = useState("");
+  const [batteryByPlant, setBatteryByPlant] = useState<Record<string, any>>({});
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -23,6 +24,7 @@ export default function ProducerOnboardingPage() {
     setMessage("");
     setRecords([]);
     setSelectedPlantKey("");
+    setBatteryByPlant({});
     setSearched(false);
 
     const cleanEik = companyEik.trim();
@@ -40,21 +42,57 @@ export default function ProducerOnboardingPage() {
       .order("plant_name", { ascending: true })
       .order("period_from", { ascending: true });
 
-    setLoading(false);
-    setSearched(true);
-
     if (error) {
+      setLoading(false);
+      setSearched(true);
       setMessage(`Грешка при търсене: ${error.message}`);
       return;
     }
 
     if (!data || data.length === 0) {
+      setLoading(false);
+      setSearched(true);
       setMessage("Не е намерен производител с този ЕИК.");
       return;
     }
 
+    const { data: assets } = await supabase
+      .from("producer_assets")
+      .select("*")
+      .eq("company_eik", cleanEik);
+
+    const batteryMap: Record<string, any> = {};
+
+    for (const row of data) {
+      const key = makePlantKey(row);
+      const existing = assets?.find(
+        (asset) =>
+          asset.company_eik === row.company_eik &&
+          asset.plant_name === row.plant_name &&
+          asset.location === row.location
+      );
+
+      batteryMap[key] = {
+        battery_power_kw: existing?.battery_power_kw || "",
+        battery_capacity_kwh: existing?.battery_capacity_kwh || "",
+      };
+    }
+
+    const firstAsset = assets?.[0];
+
+    if (firstAsset) {
+      setContact({
+        contact_person: firstAsset.contact_person || "",
+        contact_email: firstAsset.contact_email || "",
+        contact_phone: firstAsset.contact_phone || "",
+      });
+    }
+
     setRecords(data);
+    setBatteryByPlant(batteryMap);
     setSelectedPlantKey(makePlantKey(data[0]));
+    setSearched(true);
+    setLoading(false);
     setMessage(`Намерени са ${data.length} записа в базата.`);
   }
 
@@ -63,7 +101,17 @@ export default function ProducerOnboardingPage() {
     (plant) => plant.key === selectedPlantKey
   );
 
-  async function saveContact() {
+  function updateBattery(plantKey: string, field: string, value: string) {
+    setBatteryByPlant((current) => ({
+      ...current,
+      [plantKey]: {
+        ...current[plantKey],
+        [field]: value,
+      },
+    }));
+  }
+
+  async function saveContactAndAssets() {
     if (!selectedPlant) return;
 
     if (!contact.contact_email || !contact.contact_phone) {
@@ -74,15 +122,31 @@ export default function ProducerOnboardingPage() {
     setSaving(true);
     setMessage("");
 
-    const { error } = await supabase
-      .from("producers")
-      .update({
+    const payload = groupedPlants.map((plant) => {
+      const battery = batteryByPlant[plant.key] || {};
+
+      return {
+        company_eik: plant.company_eik,
+        company_name: plant.company_name,
+        plant_name: plant.plant_name,
+        location: plant.location,
+        installed_capacity_mw: plant.installed_capacity_mw,
+        technology: plant.technology,
+        energy_type: plant.energy_type,
+        battery_power_kw: toNullableNumber(battery.battery_power_kw),
+        battery_capacity_kwh: toNullableNumber(battery.battery_capacity_kwh),
         contact_person: contact.contact_person || null,
         contact_email: contact.contact_email,
         contact_phone: contact.contact_phone,
-      })
-      .eq("company_eik", selectedPlant.company_eik)
-      .eq("plant_name", selectedPlant.plant_name);
+        updated_at: new Date().toISOString(),
+      };
+    });
+
+    const { error } = await supabase
+      .from("producer_assets")
+      .upsert(payload, {
+        onConflict: "company_eik,plant_name,location",
+      });
 
     setSaving(false);
 
@@ -91,7 +155,7 @@ export default function ProducerOnboardingPage() {
       return;
     }
 
-    setMessage("Контактните данни са записани успешно.");
+    setMessage("Данните за контакт и батериите са записани успешно.");
   }
 
   return (
@@ -156,23 +220,26 @@ export default function ProducerOnboardingPage() {
               </div>
             </section>
 
-            {groupedPlants.length > 1 && (
-              <section style={cardStyle}>
-                <h2>Обекти към този производител</h2>
+            <section style={cardStyle}>
+              <h2>Обекти към този производител</h2>
 
-                <div style={plantsListStyle}>
-                  {groupedPlants.map((plant) => {
-                    const selected = plant.key === selectedPlantKey;
+              <div style={plantsListStyle}>
+                {groupedPlants.map((plant) => {
+                  const selected = plant.key === selectedPlantKey;
+                  const battery = batteryByPlant[plant.key] || {};
 
-                    return (
+                  return (
+                    <div
+                      key={plant.key}
+                      style={{
+                        ...plantCardStyle,
+                        ...(selected ? selectedPlantButtonStyle : {}),
+                      }}
+                    >
                       <button
-                        key={plant.key}
                         type="button"
                         onClick={() => setSelectedPlantKey(plant.key)}
-                        style={{
-                          ...plantButtonStyle,
-                          ...(selected ? selectedPlantButtonStyle : {}),
-                        }}
+                        style={plantMainButtonStyle}
                       >
                         <div>
                           <strong>{plant.plant_name || "Обект без име"}</strong>
@@ -185,11 +252,41 @@ export default function ProducerOnboardingPage() {
 
                         {selected && <span style={selectedBadgeStyle}>Избран</span>}
                       </button>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
+
+                      <div style={batteryRowStyle}>
+                        <input
+                          type="number"
+                          placeholder="Батерия мощност kW"
+                          value={battery.battery_power_kw || ""}
+                          onChange={(event) =>
+                            updateBattery(
+                              plant.key,
+                              "battery_power_kw",
+                              event.target.value
+                            )
+                          }
+                          style={batteryInputStyle}
+                        />
+
+                        <input
+                          type="number"
+                          placeholder="Батерия капацитет kWh"
+                          value={battery.battery_capacity_kwh || ""}
+                          onChange={(event) =>
+                            updateBattery(
+                              plant.key,
+                              "battery_capacity_kwh",
+                              event.target.value
+                            )
+                          }
+                          style={batteryInputStyle}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
 
             <section style={cardStyle}>
               <h2>Месечно производство</h2>
@@ -263,7 +360,11 @@ export default function ProducerOnboardingPage() {
                 />
               </div>
 
-              <button onClick={saveContact} disabled={saving} style={primaryButtonStyle}>
+              <button
+                onClick={saveContactAndAssets}
+                disabled={saving}
+                style={primaryButtonStyle}
+              >
                 {saving ? "Записване..." : "Продължи с този производител"}
               </button>
             </section>
@@ -330,6 +431,12 @@ function groupByPlant(records: any[]) {
   }
 
   return Array.from(map.values());
+}
+
+function toNullableNumber(value: any) {
+  if (value === "" || value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function formatNumber(value: any) {
@@ -500,18 +607,25 @@ const plantsListStyle: React.CSSProperties = {
   marginTop: 18,
 };
 
-const plantButtonStyle: React.CSSProperties = {
+const plantCardStyle: React.CSSProperties = {
   width: "100%",
   padding: 16,
   borderRadius: 16,
   border: "1px solid #e2e8f0",
   background: "#f8fafc",
+};
+
+const plantMainButtonStyle: React.CSSProperties = {
+  width: "100%",
+  border: 0,
+  background: "transparent",
   textAlign: "left",
   cursor: "pointer",
   display: "flex",
   justifyContent: "space-between",
   gap: 16,
   alignItems: "center",
+  padding: 0,
 };
 
 const selectedPlantButtonStyle: React.CSSProperties = {
@@ -532,6 +646,21 @@ const selectedBadgeStyle: React.CSSProperties = {
   color: "white",
   fontWeight: 800,
   fontSize: 13,
+};
+
+const batteryRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 12,
+  marginTop: 14,
+  flexWrap: "wrap",
+};
+
+const batteryInputStyle: React.CSSProperties = {
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid #cbd5e1",
+  width: 190,
+  fontSize: 14,
 };
 
 const tableWrapperStyle: React.CSSProperties = {
