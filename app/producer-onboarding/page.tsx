@@ -54,15 +54,14 @@ export default function ProducerOnboardingPage() {
     }
 
     setRecords(data);
-
-    const firstKey = makePlantKey(data[0]);
-    setSelectedPlantKey(firstKey);
-
+    setSelectedPlantKey(makePlantKey(data[0]));
     setMessage(`Намерени са ${data.length} записа в базата.`);
   }
 
   const groupedPlants = groupByPlant(records);
-  const selectedPlant = groupedPlants.find((plant) => plant.key === selectedPlantKey);
+  const selectedPlant = groupedPlants.find(
+    (plant) => plant.key === selectedPlantKey
+  );
 
   async function saveContact() {
     if (!selectedPlant) return;
@@ -102,7 +101,8 @@ export default function ProducerOnboardingPage() {
           <div style={badgeStyle}>Producer onboarding</div>
           <h1 style={{ margin: "10px 0" }}>Регистрация на производител</h1>
           <p style={mutedWhiteStyle}>
-            Въведи ЕИК, за да намерим всички централи и месечни производства от базата.
+            Въведи ЕИК, за да намерим всички централи и месечни производства от
+            базата.
           </p>
         </section>
 
@@ -135,12 +135,24 @@ export default function ProducerOnboardingPage() {
                 <Info label="Производител" value={selectedPlant.company_name} />
                 <Info label="Избран обект" value={selectedPlant.plant_name} />
                 <Info label="Адрес" value={selectedPlant.location} />
-                <Info label="Инсталирана мощност" value={`${selectedPlant.installed_capacity_мw || "—"} kW`} />
+                <Info
+                  label="Инсталирана мощност"
+                  value={`${formatNumber(selectedPlant.installed_capacity_mw)} MW`}
+                />
                 <Info label="Технология" value={selectedPlant.technology || "—"} />
                 <Info label="Вид енергия" value={selectedPlant.energy_type || "—"} />
-                <Info label="Дата на въвеждане" value={selectedPlant.commissioning_date || "—"} />
-                <Info label="Схеми за подпомагане" value={selectedPlant.support_scheme || "—"} />
-                <Info label="Общо произведена енергия" value={`${formatNumber(selectedPlant.total_production_mwh)} MWh`} />
+                <Info
+                  label="Дата на въвеждане"
+                  value={selectedPlant.commissioning_date || "—"}
+                />
+                <Info
+                  label="Схеми за подпомагане"
+                  value={selectedPlant.support_scheme || "—"}
+                />
+                <Info
+                  label="Общо произведена енергия"
+                  value={`${formatNumber(selectedPlant.total_production_mwh)} MWh`}
+                />
               </div>
             </section>
 
@@ -165,7 +177,8 @@ export default function ProducerOnboardingPage() {
                         <div>
                           <strong>{plant.plant_name || "Обект без име"}</strong>
                           <span style={plantMetaStyle}>
-                            {plant.technology || "—"} • {plant.installed_capacity_мw || "—"} MW •{" "}
+                            {plant.technology || "—"} •{" "}
+                            {formatNumber(plant.installed_capacity_mw)} MW •{" "}
                             {formatNumber(plant.total_production_mwh)} MWh
                           </span>
                         </div>
@@ -197,7 +210,9 @@ export default function ProducerOnboardingPage() {
                       <tr key={row.id || `${row.period_from}-${row.period_to}`}>
                         <td style={tdStyle}>{row.period_from || "—"}</td>
                         <td style={tdStyle}>{row.period_to || "—"}</td>
-                        <td style={tdStyle}>{formatNumber(row.production_mwh)} MWh</td>
+                        <td style={tdStyle}>
+                          {formatNumber(row.production_mwh)} MWh
+                        </td>
                         <td style={tdStyle}>{row.support_scheme || "—"}</td>
                       </tr>
                     ))}
@@ -214,7 +229,10 @@ export default function ProducerOnboardingPage() {
                   label="Лице за контакт"
                   value={contact.contact_person}
                   onChange={(value) =>
-                    setContact((current) => ({ ...current, contact_person: value }))
+                    setContact((current) => ({
+                      ...current,
+                      contact_person: value,
+                    }))
                   }
                 />
 
@@ -224,7 +242,10 @@ export default function ProducerOnboardingPage() {
                   required
                   value={contact.contact_email}
                   onChange={(value) =>
-                    setContact((current) => ({ ...current, contact_email: value }))
+                    setContact((current) => ({
+                      ...current,
+                      contact_email: value,
+                    }))
                   }
                 />
 
@@ -234,7 +255,10 @@ export default function ProducerOnboardingPage() {
                   required
                   value={contact.contact_phone}
                   onChange={(value) =>
-                    setContact((current) => ({ ...current, contact_phone: value }))
+                    setContact((current) => ({
+                      ...current,
+                      contact_phone: value,
+                    }))
                   }
                 />
               </div>
@@ -261,7 +285,9 @@ export default function ProducerOnboardingPage() {
               <Field label="Мобилен телефон" type="tel" />
             </div>
 
-            <button style={primaryButtonStyle}>Продължи с ръчно въведени данни</button>
+            <button style={primaryButtonStyle}>
+              Продължи с ръчно въведени данни
+            </button>
           </section>
         )}
       </div>
@@ -270,7 +296,9 @@ export default function ProducerOnboardingPage() {
 }
 
 function makePlantKey(row: any) {
-  return `${row.company_eik || ""}__${row.plant_name || ""}__${row.location || ""}`;
+  return `${row.company_eik || ""}__${row.plant_name || ""}__${
+    row.location || ""
+  }`;
 }
 
 function groupByPlant(records: any[]) {
@@ -286,7 +314,7 @@ function groupByPlant(records: any[]) {
         company_name: row.company_name,
         plant_name: row.plant_name,
         location: row.location,
-        installed_capacity_Mw: row.installed_capacity_Mw,
+        installed_capacity_mw: row.installed_capacity_mw,
         technology: row.technology,
         energy_type: row.energy_type,
         commissioning_date: row.commissioning_date,
