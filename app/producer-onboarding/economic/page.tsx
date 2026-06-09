@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
-export default function ProducerEconomicPage() {
+function ProducerEconomicContent() {
   const searchParams = useSearchParams();
 
   const companyEik = searchParams.get("eik") || "";
@@ -49,13 +49,9 @@ export default function ProducerEconomicPage() {
 
     const { error } = await supabase.storage
       .from("producer-invoices")
-      .upload(path, file, {
-        upsert: true,
-      });
+      .upload(path, file, { upsert: true });
 
-    if (error) {
-      throw new Error(error.message);
-    }
+    if (error) throw new Error(error.message);
 
     return path;
   }
@@ -80,7 +76,6 @@ export default function ProducerEconomicPage() {
         company_eik: companyEik,
         plant_name: plantName,
         location,
-
         current_buyer: form.current_buyer || null,
         contract_type: form.contract_type || null,
         contract_end_date: form.contract_end_date || null,
@@ -89,7 +84,6 @@ export default function ProducerEconomicPage() {
         green_certificate_included: form.green_certificate_included,
         support_scheme: form.support_scheme || null,
         notes: form.notes || null,
-
         invoice_1_url: invoice1Url,
         invoice_2_url: invoice2Url,
         invoice_3_url: invoice3Url,
@@ -97,7 +91,6 @@ export default function ProducerEconomicPage() {
 
       if (error) {
         setMessage(`Грешка при запис: ${error.message}`);
-        setSaving(false);
         return;
       }
 
@@ -116,18 +109,14 @@ export default function ProducerEconomicPage() {
       <div style={containerStyle}>
         <section style={heroStyle}>
           <div style={badgeStyle}>Producer economic onboarding</div>
-          <h1 style={{ margin: "10px 0" }}>
-            Икономически данни на производител
-          </h1>
+          <h1 style={{ margin: "10px 0" }}>Икономически данни на производител</h1>
           <p style={mutedWhiteStyle}>
-            Тук събираме фактури, продажна цена, текущ купувач и договорни
-            условия.
+            Тук събираме фактури, продажна цена, текущ купувач и договорни условия.
           </p>
         </section>
 
         <section style={cardStyle}>
           <h2>Избран обект</h2>
-
           <div style={gridStyle}>
             <Info label="ЕИК" value={companyEik} />
             <Info label="Обект" value={plantName} />
@@ -150,14 +139,12 @@ export default function ProducerEconomicPage() {
                   setFiles((current) => ({ ...current, invoice1: file }))
                 }
               />
-
               <FileField
                 label="Фактура 2 — по желание"
                 onChange={(file) =>
                   setFiles((current) => ({ ...current, invoice2: file }))
                 }
               />
-
               <FileField
                 label="Фактура 3 — по желание"
                 onChange={(file) =>
@@ -171,46 +158,12 @@ export default function ProducerEconomicPage() {
             <h2>Икономически параметри</h2>
 
             <div style={gridStyle}>
-              <Field
-                label="Настоящ купувач / търговец"
-                value={form.current_buyer}
-                onChange={(value) => updateField("current_buyer", value)}
-              />
-
-              <Field
-                label="Тип договор"
-                value={form.contract_type}
-                onChange={(value) => updateField("contract_type", value)}
-              />
-
-              <Field
-                label="Край на договор"
-                type="date"
-                value={form.contract_end_date}
-                onChange={(value) => updateField("contract_end_date", value)}
-              />
-
-              <Field
-                label="Продажна цена BGN/MWh"
-                type="number"
-                value={form.sale_price_bgn_mwh}
-                onChange={(value) => updateField("sale_price_bgn_mwh", value)}
-              />
-
-              <Field
-                label="Разход за балансиране BGN/MWh"
-                type="number"
-                value={form.balancing_cost_bgn_mwh}
-                onChange={(value) =>
-                  updateField("balancing_cost_bgn_mwh", value)
-                }
-              />
-
-              <Field
-                label="Схема за подпомагане"
-                value={form.support_scheme}
-                onChange={(value) => updateField("support_scheme", value)}
-              />
+              <Field label="Настоящ купувач / търговец" value={form.current_buyer} onChange={(v) => updateField("current_buyer", v)} />
+              <Field label="Тип договор" value={form.contract_type} onChange={(v) => updateField("contract_type", v)} />
+              <Field label="Край на договор" type="date" value={form.contract_end_date} onChange={(v) => updateField("contract_end_date", v)} />
+              <Field label="Продажна цена BGN/MWh" type="number" value={form.sale_price_bgn_mwh} onChange={(v) => updateField("sale_price_bgn_mwh", v)} />
+              <Field label="Разход за балансиране BGN/MWh" type="number" value={form.balancing_cost_bgn_mwh} onChange={(v) => updateField("balancing_cost_bgn_mwh", v)} />
+              <Field label="Схема за подпомагане" value={form.support_scheme} onChange={(v) => updateField("support_scheme", v)} />
             </div>
 
             <label style={checkboxStyle}>
@@ -245,6 +198,14 @@ export default function ProducerEconomicPage() {
   );
 }
 
+export default function ProducerEconomicPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40 }}>Зареждане...</div>}>
+      <ProducerEconomicContent />
+    </Suspense>
+  );
+}
+
 function toNullableNumber(value: string) {
   if (!value) return null;
   const number = Number(value);
@@ -260,12 +221,7 @@ function Info({ label, value }: { label: string; value: any }) {
   );
 }
 
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-}: {
+function Field({ label, value, onChange, type = "text" }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -274,21 +230,12 @@ function Field({
   return (
     <div style={fieldStyle}>
       <label style={fieldLabelStyle}>{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        style={inputStyle}
-      />
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} style={inputStyle} />
     </div>
   );
 }
 
-function FileField({
-  label,
-  required = false,
-  onChange,
-}: {
+function FileField({ label, required = false, onChange }: {
   label: string;
   required?: boolean;
   onChange: (file: File | null) => void;
@@ -296,137 +243,25 @@ function FileField({
   return (
     <div style={fieldStyle}>
       <label style={fieldLabelStyle}>{label}</label>
-      <input
-        type="file"
-        required={required}
-        accept=".pdf,.jpg,.jpeg,.png"
-        onChange={(event) => onChange(event.target.files?.[0] || null)}
-        style={inputStyle}
-      />
+      <input type="file" required={required} accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => onChange(e.target.files?.[0] || null)} style={inputStyle} />
     </div>
   );
 }
 
-const pageStyle: React.CSSProperties = {
-  minHeight: "100vh",
-  background: "#f3f6fb",
-  padding: 40,
-  fontFamily: "Arial, sans-serif",
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: 1150,
-  margin: "0 auto",
-};
-
-const heroStyle: React.CSSProperties = {
-  background: "linear-gradient(135deg,#1e3a8a,#0f766e)",
-  color: "white",
-  padding: 34,
-  borderRadius: 28,
-};
-
-const badgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  padding: "8px 12px",
-  borderRadius: 999,
-  background: "rgba(255,255,255,0.18)",
-  fontWeight: 800,
-};
-
-const mutedWhiteStyle: React.CSSProperties = {
-  color: "rgba(255,255,255,0.8)",
-};
-
-const mutedStyle: React.CSSProperties = {
-  color: "#64748b",
-};
-
-const cardStyle: React.CSSProperties = {
-  background: "white",
-  padding: 28,
-  borderRadius: 24,
-  marginTop: 26,
-  boxShadow: "0 14px 40px rgba(15,23,42,0.08)",
-};
-
-const gridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-  gap: 16,
-  marginTop: 18,
-};
-
-const infoStyle: React.CSSProperties = {
-  padding: 16,
-  borderRadius: 16,
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  color: "#64748b",
-  fontSize: 13,
-  marginBottom: 6,
-};
-
-const fieldStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
-};
-
-const fieldLabelStyle: React.CSSProperties = {
-  color: "#334155",
-  fontWeight: 700,
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "13px 14px",
-  borderRadius: 14,
-  border: "1px solid #cbd5e1",
-  fontSize: 15,
-};
-
-const textareaStyle: React.CSSProperties = {
-  width: "100%",
-  minHeight: 100,
-  padding: "13px 14px",
-  borderRadius: 14,
-  border: "1px solid #cbd5e1",
-  fontSize: 15,
-  marginTop: 8,
-};
-
-const checkboxStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 10,
-  alignItems: "center",
-  padding: 14,
-  borderRadius: 14,
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-  marginTop: 18,
-};
-
-const messageStyle: React.CSSProperties = {
-  marginTop: 18,
-  padding: 14,
-  borderRadius: 14,
-  background: "#eff6ff",
-  color: "#1e40af",
-  fontWeight: 700,
-};
-
-const primaryButtonStyle: React.CSSProperties = {
-  marginTop: 22,
-  padding: "14px 22px",
-  borderRadius: 16,
-  border: 0,
-  background: "#059669",
-  color: "white",
-  fontWeight: 800,
-  cursor: "pointer",
-};
+const pageStyle: React.CSSProperties = { minHeight: "100vh", background: "#f3f6fb", padding: 40, fontFamily: "Arial, sans-serif" };
+const containerStyle: React.CSSProperties = { maxWidth: 1150, margin: "0 auto" };
+const heroStyle: React.CSSProperties = { background: "linear-gradient(135deg,#1e3a8a,#0f766e)", color: "white", padding: 34, borderRadius: 28 };
+const badgeStyle: React.CSSProperties = { display: "inline-flex", padding: "8px 12px", borderRadius: 999, background: "rgba(255,255,255,0.18)", fontWeight: 800 };
+const mutedWhiteStyle: React.CSSProperties = { color: "rgba(255,255,255,0.8)" };
+const mutedStyle: React.CSSProperties = { color: "#64748b" };
+const cardStyle: React.CSSProperties = { background: "white", padding: 28, borderRadius: 24, marginTop: 26, boxShadow: "0 14px 40px rgba(15,23,42,0.08)" };
+const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16, marginTop: 18 };
+const infoStyle: React.CSSProperties = { padding: 16, borderRadius: 16, background: "#f8fafc", border: "1px solid #e2e8f0" };
+const labelStyle: React.CSSProperties = { display: "block", color: "#64748b", fontSize: 13, marginBottom: 6 };
+const fieldStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 8 };
+const fieldLabelStyle: React.CSSProperties = { color: "#334155", fontWeight: 700 };
+const inputStyle: React.CSSProperties = { width: "100%", padding: "13px 14px", borderRadius: 14, border: "1px solid #cbd5e1", fontSize: 15 };
+const textareaStyle: React.CSSProperties = { width: "100%", minHeight: 100, padding: "13px 14px", borderRadius: 14, border: "1px solid #cbd5e1", fontSize: 15, marginTop: 8 };
+const checkboxStyle: React.CSSProperties = { display: "flex", gap: 10, alignItems: "center", padding: 14, borderRadius: 14, background: "#f8fafc", border: "1px solid #e2e8f0", marginTop: 18 };
+const messageStyle: React.CSSProperties = { marginTop: 18, padding: 14, borderRadius: 14, background: "#eff6ff", color: "#1e40af", fontWeight: 700 };
+const primaryButtonStyle: React.CSSProperties = { marginTop: 22, padding: "14px 22px", borderRadius: 16, border: 0, background: "#059669", color: "white", fontWeight: 800, cursor: "pointer" };
