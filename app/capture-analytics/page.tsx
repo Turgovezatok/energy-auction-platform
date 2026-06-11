@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import CaptureCharts from './CaptureCharts'
 
 type PageProps = {
   searchParams?: {
@@ -6,7 +7,6 @@ type PageProps = {
     technology?: string
   }
 }
-
 const technologies = [
   { key: 'solar', label: 'Solar' },
   { key: 'wind', label: 'Wind' },
@@ -150,6 +150,11 @@ export default async function CaptureAnalyticsPage({ searchParams }: PageProps) 
         </p>
       </div>
 
+      <CaptureCharts
+  data={data || []}
+  technology={selectedTechnology}
+  technologyLabel={selectedTechnologyLabel}
+/>
       <h2 className="mb-3 text-xl font-semibold">
         {selectedTechnologyLabel} Capture Price по часови блокове, €/MWh
       </h2>
