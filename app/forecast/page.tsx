@@ -10,7 +10,6 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  ReferenceArea,
 } from "recharts";
 
 const supabase = createClient(
@@ -25,54 +24,45 @@ export default function ForecastPage() {
 
   useEffect(() => {
     async function loadData() {
-  const result = await supabase
-    .from("price_forecast_results")
-    .select(
-      "timestamp_utc, forecast_price_eur_mwh, generation_forecast_mw, eso_load_forecast_mw, real_system_margin_mw, real_system_ratio, created_at"
-    )
-    .order("timestamp_utc", { ascending: false })
-    .limit(24);
+      const result = await supabase
+        .from("price_forecast_results")
+        .select(
+          "timestamp_utc, forecast_price_eur_mwh, generation_forecast_mw, eso_load_forecast_mw, real_system_margin_mw, real_system_ratio, created_at"
+        )
+        .order("timestamp_utc", { ascending: false })
+        .limit(24);
 
-  if (result.error) {
-    setErrorMessage(result.error.message);
-    return;
-  }
+      if (result.error) {
+        setErrorMessage(result.error.message);
+        return;
+      }
 
-  const rows = [...(result.data || [])].sort(
-    (a, b) =>
-      new Date(a.timestamp_utc).getTime() -
-      new Date(b.timestamp_utc).getTime()
-  );
+      const rows = [...(result.data || [])].sort(
+        (a, b) =>
+          new Date(a.timestamp_utc).getTime() -
+          new Date(b.timestamp_utc).getTime()
+      );
 
-  setData(rows);
+      setData(rows);
 
-  if (rows.length > 0) {
-    const latestCreatedAt = rows.reduce((latest, row) => {
-      if (!latest) return row.created_at;
-      return new Date(row.created_at).getTime() >
-        new Date(latest).getTime()
-        ? row.created_at
-        : latest;
-    }, null as string | null);
+      if (rows.length > 0) {
+        const latestCreatedAt = rows.reduce((latest, row) => {
+          if (!latest) return row.created_at;
 
-    setLatestRun(latestCreatedAt);
-  }
-}
+          return new Date(row.created_at).getTime() >
+            new Date(latest).getTime()
+            ? row.created_at
+            : latest;
+        }, null as string | null);
+
+        setLatestRun(latestCreatedAt);
+      }
     }
 
     loadData();
   }, []);
 
   const chartData = useMemo(
-if (!data.length) {
-  return (
-    <main className="min-h-screen bg-slate-100 p-6">
-      <div className="mx-auto max-w-7xl rounded-2xl bg-white p-6 shadow-sm">
-        Няма налични прогнозни данни.
-      </div>
-    </main>
-  );
-}
     () =>
       data.map((row) => ({
         time: new Date(row.timestamp_utc).toLocaleString("bg-BG", {
@@ -86,23 +76,42 @@ if (!data.length) {
     [data]
   );
 
-  const minPrice = Math.min(...chartData.map((d) => d.price));
-  const maxPrice = Math.max(...chartData.map((d) => d.price));
-  const avgPrice =
-    chartData.reduce((sum, d) => sum + d.price, 0) / Math.max(chartData.length, 1);
-  const spread = maxPrice - minPrice;
-
-  const cheapest = [...data]
-    .sort((a, b) => Number(a.forecast_price_eur_mwh) - Number(b.forecast_price_eur_mwh))
-    .slice(0, 4);
-
-  const mostExpensive = [...data]
-    .sort((a, b) => Number(b.forecast_price_eur_mwh) - Number(a.forecast_price_eur_mwh))
-    .slice(0, 4);
-
   if (errorMessage) {
     return <div className="p-6">Грешка: {errorMessage}</div>;
   }
+
+  if (!data.length) {
+    return (
+      <main className="min-h-screen bg-slate-100 p-6">
+        <div className="mx-auto max-w-7xl rounded-2xl bg-white p-6 shadow-sm">
+          Няма налични прогнозни данни.
+        </div>
+      </main>
+    );
+  }
+
+  const minPrice = Math.min(...chartData.map((d) => d.price));
+  const maxPrice = Math.max(...chartData.map((d) => d.price));
+  const avgPrice =
+    chartData.reduce((sum, d) => sum + d.price, 0) /
+    Math.max(chartData.length, 1);
+  const spread = maxPrice - minPrice;
+
+  const cheapest = [...data]
+    .sort(
+      (a, b) =>
+        Number(a.forecast_price_eur_mwh) -
+        Number(b.forecast_price_eur_mwh)
+    )
+    .slice(0, 4);
+
+  const mostExpensive = [...data]
+    .sort(
+      (a, b) =>
+        Number(b.forecast_price_eur_mwh) -
+        Number(a.forecast_price_eur_mwh)
+    )
+    .slice(0, 4);
 
   return (
     <main className="min-h-screen bg-slate-100 p-6">
@@ -113,26 +122,39 @@ if (!data.length) {
           </h1>
           <p className="text-slate-600">
             Последна прогноза:{" "}
-            {latestRun ? new Date(latestRun).toLocaleString("bg-BG") : "зарежда..."}
+            {latestRun
+              ? new Date(latestRun).toLocaleString("bg-BG")
+              : "зарежда..."}
           </p>
         </div>
 
         <div className="mb-6 grid gap-4 md:grid-cols-4">
           <div className="rounded-2xl bg-white p-5 shadow-sm">
             <div className="text-sm text-slate-500">Минимална цена</div>
-            <div className="text-2xl font-bold">{minPrice.toFixed(2)} €/MWh</div>
+            <div className="text-2xl font-bold">
+              {minPrice.toFixed(2)} €/MWh
+            </div>
           </div>
+
           <div className="rounded-2xl bg-white p-5 shadow-sm">
             <div className="text-sm text-slate-500">Максимална цена</div>
-            <div className="text-2xl font-bold">{maxPrice.toFixed(2)} €/MWh</div>
+            <div className="text-2xl font-bold">
+              {maxPrice.toFixed(2)} €/MWh
+            </div>
           </div>
+
           <div className="rounded-2xl bg-white p-5 shadow-sm">
             <div className="text-sm text-slate-500">Средна цена</div>
-            <div className="text-2xl font-bold">{avgPrice.toFixed(2)} €/MWh</div>
+            <div className="text-2xl font-bold">
+              {avgPrice.toFixed(2)} €/MWh
+            </div>
           </div>
+
           <div className="rounded-2xl bg-white p-5 shadow-sm">
             <div className="text-sm text-slate-500">Spread</div>
-            <div className="text-2xl font-bold">{spread.toFixed(2)} €/MWh</div>
+            <div className="text-2xl font-bold">
+              {spread.toFixed(2)} €/MWh
+            </div>
           </div>
         </div>
 
@@ -165,9 +187,14 @@ if (!data.length) {
           <div className="rounded-2xl bg-white p-5 shadow-sm">
             <h3 className="mb-3 text-lg font-semibold">4 най-евтини часа</h3>
             {cheapest.map((row) => (
-              <div key={row.timestamp_utc} className="flex justify-between border-b py-2">
+              <div
+                key={row.timestamp_utc}
+                className="flex justify-between border-b py-2"
+              >
                 <span>{new Date(row.timestamp_utc).toLocaleString("bg-BG")}</span>
-                <strong>{Number(row.forecast_price_eur_mwh).toFixed(2)} €/MWh</strong>
+                <strong>
+                  {Number(row.forecast_price_eur_mwh).toFixed(2)} €/MWh
+                </strong>
               </div>
             ))}
           </div>
@@ -175,9 +202,14 @@ if (!data.length) {
           <div className="rounded-2xl bg-white p-5 shadow-sm">
             <h3 className="mb-3 text-lg font-semibold">4 най-скъпи часа</h3>
             {mostExpensive.map((row) => (
-              <div key={row.timestamp_utc} className="flex justify-between border-b py-2">
+              <div
+                key={row.timestamp_utc}
+                className="flex justify-between border-b py-2"
+              >
                 <span>{new Date(row.timestamp_utc).toLocaleString("bg-BG")}</span>
-                <strong>{Number(row.forecast_price_eur_mwh).toFixed(2)} €/MWh</strong>
+                <strong>
+                  {Number(row.forecast_price_eur_mwh).toFixed(2)} €/MWh
+                </strong>
               </div>
             ))}
           </div>
