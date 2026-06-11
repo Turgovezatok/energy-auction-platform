@@ -25,41 +25,54 @@ export default function ForecastPage() {
 
   useEffect(() => {
     async function loadData() {
-      const latest = await supabase
-        .from("price_forecast_results")
-        .select("created_at")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+  const result = await supabase
+    .from("price_forecast_results")
+    .select(
+      "timestamp_utc, forecast_price_eur_mwh, generation_forecast_mw, eso_load_forecast_mw, real_system_margin_mw, real_system_ratio, created_at"
+    )
+    .order("timestamp_utc", { ascending: false })
+    .limit(24);
 
-      if (latest.error) {
-        setErrorMessage(latest.error.message);
-        return;
-      }
+  if (result.error) {
+    setErrorMessage(result.error.message);
+    return;
+  }
 
-      const createdAt = latest.data.created_at;
-      setLatestRun(createdAt);
+  const rows = [...(result.data || [])].sort(
+    (a, b) =>
+      new Date(a.timestamp_utc).getTime() -
+      new Date(b.timestamp_utc).getTime()
+  );
 
-      const result = await supabase
-        .from("price_forecast_results")
-        .select(
-          "timestamp_utc, forecast_price_eur_mwh, generation_forecast_mw, eso_load_forecast_mw, real_system_margin_mw, real_system_ratio, created_at"
-        )
-        .eq("created_at", createdAt)
-        .order("timestamp_utc", { ascending: true });
+  setData(rows);
 
-      if (result.error) {
-        setErrorMessage(result.error.message);
-        return;
-      }
+  if (rows.length > 0) {
+    const latestCreatedAt = rows.reduce((latest, row) => {
+      if (!latest) return row.created_at;
+      return new Date(row.created_at).getTime() >
+        new Date(latest).getTime()
+        ? row.created_at
+        : latest;
+    }, null as string | null);
 
-      setData(result.data || []);
+    setLatestRun(latestCreatedAt);
+  }
+}
     }
 
     loadData();
   }, []);
 
   const chartData = useMemo(
+if (!data.length) {
+  return (
+    <main className="min-h-screen bg-slate-100 p-6">
+      <div className="mx-auto max-w-7xl rounded-2xl bg-white p-6 shadow-sm">
+        Няма налични прогнозни данни.
+      </div>
+    </main>
+  );
+}
     () =>
       data.map((row) => ({
         time: new Date(row.timestamp_utc).toLocaleString("bg-BG", {
