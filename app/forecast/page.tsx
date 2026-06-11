@@ -24,6 +24,39 @@ export default function ForecastPage() {
 
   useEffect(() => {
     async function loadData() {
+  const latestRunResult = await supabase
+    .from("price_forecast_results")
+    .select("forecast_run_id, created_at")
+    .not("forecast_run_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (latestRunResult.error) {
+    setErrorMessage(latestRunResult.error.message);
+    return;
+  }
+
+  const forecastRunId = latestRunResult.data.forecast_run_id;
+  const createdAt = latestRunResult.data.created_at;
+
+  setLatestRun(createdAt);
+
+  const result = await supabase
+    .from("price_forecast_results")
+    .select(
+      "timestamp_utc, forecast_price_eur_mwh, generation_forecast_mw, eso_load_forecast_mw, real_system_margin_mw, real_system_ratio, created_at, forecast_run_id"
+    )
+    .eq("forecast_run_id", forecastRunId)
+    .order("timestamp_utc", { ascending: true });
+
+  if (result.error) {
+    setErrorMessage(result.error.message);
+    return;
+  }
+
+  setData(result.data || []);
+}
       const result = await supabase
         .from("price_forecast_results")
         .select(
