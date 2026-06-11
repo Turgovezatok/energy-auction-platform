@@ -21,75 +21,43 @@ export default function ForecastPage() {
   const [data, setData] = useState<any[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [latestRun, setLatestRun] = useState<string | null>(null);
+  const [latestRunId, setLatestRunId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
-  const latestRunResult = await supabase
-    .from("price_forecast_results")
-    .select("forecast_run_id, created_at")
-    .not("forecast_run_id", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
+      const latestRunResult = await supabase
+        .from("price_forecast_results")
+        .select("forecast_run_id, created_at")
+        .not("forecast_run_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
 
-  if (latestRunResult.error) {
-    setErrorMessage(latestRunResult.error.message);
-    return;
-  }
+      if (latestRunResult.error) {
+        setErrorMessage(latestRunResult.error.message);
+        return;
+      }
 
-  const forecastRunId = latestRunResult.data.forecast_run_id;
-  const createdAt = latestRunResult.data.created_at;
+      const forecastRunId = latestRunResult.data.forecast_run_id;
+      const createdAt = latestRunResult.data.created_at;
 
-  setLatestRun(createdAt);
+      setLatestRun(createdAt);
+      setLatestRunId(forecastRunId);
 
-  const result = await supabase
-    .from("price_forecast_results")
-    .select(
-      "timestamp_utc, forecast_price_eur_mwh, generation_forecast_mw, eso_load_forecast_mw, real_system_margin_mw, real_system_ratio, created_at, forecast_run_id"
-    )
-    .eq("forecast_run_id", forecastRunId)
-    .order("timestamp_utc", { ascending: true });
-
-  if (result.error) {
-    setErrorMessage(result.error.message);
-    return;
-  }
-
-  setData(result.data || []);
-}
       const result = await supabase
         .from("price_forecast_results")
         .select(
-          "timestamp_utc, forecast_price_eur_mwh, generation_forecast_mw, eso_load_forecast_mw, real_system_margin_mw, real_system_ratio, created_at"
+          "timestamp_utc, forecast_price_eur_mwh, generation_forecast_mw, eso_load_forecast_mw, real_system_margin_mw, real_system_ratio, created_at, forecast_run_id"
         )
-        .order("timestamp_utc", { ascending: false })
-        .limit(24);
+        .eq("forecast_run_id", forecastRunId)
+        .order("timestamp_utc", { ascending: true });
 
       if (result.error) {
         setErrorMessage(result.error.message);
         return;
       }
 
-      const rows = [...(result.data || [])].sort(
-        (a, b) =>
-          new Date(a.timestamp_utc).getTime() -
-          new Date(b.timestamp_utc).getTime()
-      );
-
-      setData(rows);
-
-      if (rows.length > 0) {
-        const latestCreatedAt = rows.reduce((latest, row) => {
-          if (!latest) return row.created_at;
-
-          return new Date(row.created_at).getTime() >
-            new Date(latest).getTime()
-            ? row.created_at
-            : latest;
-        }, null as string | null);
-
-        setLatestRun(latestCreatedAt);
-      }
+      setData(result.data || []);
     }
 
     loadData();
@@ -158,6 +126,9 @@ export default function ForecastPage() {
             {latestRun
               ? new Date(latestRun).toLocaleString("bg-BG")
               : "зарежда..."}
+          </p>
+          <p className="text-xs text-slate-400">
+            Forecast run: {latestRunId || "-"}
           </p>
         </div>
 
