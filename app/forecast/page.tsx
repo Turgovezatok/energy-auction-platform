@@ -1,3 +1,4 @@
+cat > app/forecast/page.tsx <<'EOF'
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -270,3 +271,4 @@ export default function ForecastPage() {
     </main>
   );
 }
+EOF
