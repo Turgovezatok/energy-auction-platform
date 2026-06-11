@@ -64,7 +64,7 @@ export default async function CaptureAnalyticsPage({ searchParams }: PageProps) 
     .from('technology_capture_timeblock_v')
     .select('*')
     .eq('year', selectedYear)
-    .order('month', { ascending: false })
+    .order('month', { ascending: true })
 
   if (error) {
     return <div className="p-6">Грешка: {error.message}</div>
@@ -155,7 +155,7 @@ export default async function CaptureAnalyticsPage({ searchParams }: PageProps) 
       </h2>
 
       <div className="mb-8 overflow-x-auto">
-        <table className="min-w-full border border-gray-200 text-sm">
+        <table className="min-w-full border border-green-200 text-sm">
           <thead>
             <tr className="bg-gray-100">
               <th className="border px-3 py-2">Година</th>
@@ -215,7 +215,7 @@ export default async function CaptureAnalyticsPage({ searchParams }: PageProps) 
       </h2>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full border border-gray-200 text-sm">
+        <table className="min-w-full border border-green-200 text-sm">
           <thead>
             <tr className="bg-gray-100">
               <th className="border px-3 py-2">Година</th>
