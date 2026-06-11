@@ -1,4 +1,3 @@
-cat > app/forecast/page.tsx <<'EOF'
 "use client";
 
 export default function ForecastPage() {
@@ -8,11 +7,18 @@ export default function ForecastPage() {
         <h1 className="text-3xl font-bold text-slate-900">
           EnergyBid Forecast
         </h1>
-        <p className="mt-2 text-slate-600">
+
+        <p className="mt-4 text-slate-600">
           Forecast page reset successful.
         </p>
+
+        <div className="mt-6 rounded-lg border p-4">
+          <p>
+            Страницата е временно възстановена. След като build-ът мине успешно,
+            ще върнем пълната версия с графиката и данните от Supabase.
+          </p>
+        </div>
       </div>
     </main>
   );
 }
-EOF
