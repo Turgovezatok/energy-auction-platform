@@ -252,4 +252,7 @@ export default function ForecastPage() {
     </main>
   );
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> b2b9129 (Fix forecast page and solar capture build)
