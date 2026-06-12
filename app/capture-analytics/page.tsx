@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import CaptureCharts from './CaptureCharts'
+import DViewCharts from './DViewCharts'
 
 type PageProps = {
   searchParams?: {
