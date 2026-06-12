@@ -6,6 +6,8 @@ export default function HomePage() {
 
         <nav style={navStyle}>
           <a href="#how">Как работи</a>
+          <a href="/statistics">Статистики</a>
+          <a href="/dview">DView</a>
           <a href="/login">Вход</a>
           <a href="/consumer-onboarding">Регистрация</a>
         </nav>
@@ -49,26 +51,24 @@ export default function HomePage() {
               <h3>За търговци</h3>
               <p>Достъп до търгове, подаване на оферти и управление на клиенти.</p>
             </a>
+
+            <a href="/statistics" style={roleCardStyle}>
+              <div style={iconStyle}>📊</div>
+              <h3>Статистики</h3>
+              <p>Публични справки за Capture Price, Capture Rate и технологии.</p>
+            </a>
           </div>
         </div>
 
         <div style={marketCardStyle}>
           <h3 style={{ fontSize: 28, marginTop: 0 }}>Пазарен обзор</h3>
           <p style={{ color: "rgba(255,255,255,0.75)" }}>
-            Примерна визуализация за бъдещото табло.
+            Публични пазарни справки и статистики.
           </p>
 
-          {[
-            ["Средна базова цена", "152.45 лв./MWh"],
-            ["Активни търгове", "24"],
-            ["Участници", "126"],
-            ["Средна икономия", "18%"],
-          ].map(([label, value]) => (
-            <div key={label} style={marketRowStyle}>
-              <span>{label}</span>
-              <strong>{value}</strong>
-            </div>
-          ))}
+          <a href="/statistics" style={marketButtonStyle}>
+            Виж статистики
+          </a>
         </div>
       </section>
 
@@ -185,11 +185,15 @@ const marketCardStyle: React.CSSProperties = {
   boxShadow: "0 30px 80px rgba(15,23,42,0.25)",
 };
 
-const marketRowStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  padding: "16px 0",
-  borderBottom: "1px solid rgba(255,255,255,0.18)",
+const marketButtonStyle: React.CSSProperties = {
+  display: "inline-block",
+  marginTop: 20,
+  background: "white",
+  color: "#064e3b",
+  padding: "14px 22px",
+  borderRadius: 14,
+  fontWeight: 800,
+  textDecoration: "none",
 };
 
 const infoSectionStyle: React.CSSProperties = {
