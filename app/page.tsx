@@ -218,23 +218,22 @@ export default async function HomePage() {
       <header style={headerStyle}>
         <h2 style={{ margin: 0, color: "#059669" }}>⚡ EnergyBid</h2>
 
-        <nav style={navStyle}> <div style={headerRoleLinksStyle}>
-  <a href="/producer-onboarding" style={headerRoleButtonStyle}>
-    ☀️ Производители
-  </a>
+        <div style={headerRoleLinksStyle}>
+          <a href="/producer-onboarding" style={headerRoleButtonStyle}>
+            ☀️ Производители
+          </a>
+          <a href="/consumer-onboarding" style={headerRoleButtonStyle}>
+            🏭 Потребители
+          </a>
+          <a href="/prosumer-onboarding" style={headerRoleButtonStyle}>
+            🔋 Просюмъри
+          </a>
+          <a href="/trader-onboarding" style={headerRoleButtonStyle}>
+            📈 Търговци
+          </a>
+        </div>
 
-  <a href="/consumer-onboarding" style={headerRoleButtonStyle}>
-    🏭 Потребители
-  </a>
-
-  <a href="/prosumer-onboarding" style={headerRoleButtonStyle}>
-    🔋 Просюмъри
-  </a>
-
-  <a href="/trader-onboarding" style={headerRoleButtonStyle}>
-    📈 Търговци
-  </a>
-</div>
+        <nav style={navStyle}>
           <a href="#how">Как работи</a>
           <a href="/statistics">Статистики</a>
           <a href="/dview">DView</a>
@@ -246,42 +245,13 @@ export default async function HomePage() {
       <section style={heroIntroStyle}>
         <div style={badgeStyle}>Reverse auction платформа за електроенергия</div>
 
-        <h1 style={titleCenteredStyle}>
-          Изберете своя профил и започнете правилния процес
-        </h1>
+        <h1 style={titleCenteredStyle}>AI Electricity Price Forecast</h1>
 
         <p style={subtitleCenteredStyle}>
-          Потребители, просюмъри, производители и търговци влизат през отделен
-          процес. EnergyBid добавя прогнозиране, пазарни сигнали и аналитика за
-          по-добри решения.
+          EnergyBid Forecast Engine прогнозира почасовата цена на електроенергията
+          и подпомага потребители, производители, просюмъри и търговци при вземане
+          на по-добри пазарни решения.
         </p>
-
-                <a href="/producer-onboarding" style={roleCardTopStyle}>
-            <div style={iconStyle}>☀️</div>
-            <h3>За производители</h3>
-            <p>ФЕЦ, ВЕИ паркове, батерии, PPA и продажба на енергия.</p>
-          </a>
-
-          <a href="/consumer-onboarding" style={roleCardTopStyle}>
-            <div style={iconStyle}>🏭</div>
-            <h3>За потребители</h3>
-            <p>Попълване на данни, качване на фактура и създаване на търг.</p>
-          </a>
-
-          <a href="/prosumer-onboarding" style={roleCardTopStyle}>
-            <div style={iconStyle}>🔋</div>
-            <h3>За потребители с централа</h3>
-            <p>ФЕЦ, собствено потребление, излишък към мрежата и батерии.</p>
-          </a>
-
-          <a href="/trader-onboarding" style={roleCardTopStyle}>
-            <div style={iconStyle}>📈</div>
-            <h3>За търговци</h3>
-            <p>Достъп до търгове, подаване на оферти и управление на клиенти.</p>
-          </a>
-
-          
-        </div>
       </section>
 
       <ForecastChart data={forecastData} />
@@ -325,71 +295,67 @@ const pageStyle: CSSProperties = {
 const headerStyle: CSSProperties = {
   padding: "16px 4%",
   display: "grid",
-  gridTemplateColumns: "220px auto 1fr",
+  gridTemplateColumns: "180px 1fr auto",
   alignItems: "center",
   gap: 24,
-  background: "rgba(248,250,252,0.95)",
+  background: "rgba(248,250,252,0.97)",
   position: "sticky",
   top: 0,
   zIndex: 20,
   borderBottom: "1px solid #e2e8f0",
 };
 
+const headerRoleLinksStyle: CSSProperties = {
+  display: "flex",
+  gap: 10,
+  justifyContent: "center",
+  flexWrap: "wrap",
+};
+
+const headerRoleButtonStyle: CSSProperties = {
+  background: "white",
+  border: "1px solid #e2e8f0",
+  borderRadius: 999,
+  padding: "10px 14px",
+  color: "#0f172a",
+  textDecoration: "none",
+  fontWeight: 700,
+  fontSize: 14,
+  boxShadow: "0 4px 14px rgba(15,23,42,0.05)",
+};
+
 const navStyle: CSSProperties = {
   display: "flex",
-  gap: 22,
-  fontSize: 16,
+  gap: 18,
+  fontSize: 15,
+  alignItems: "center",
+  whiteSpace: "nowrap",
 };
 
 const heroIntroStyle: CSSProperties = {
-  padding: "62px 7% 28px",
+  padding: "38px 7% 8px",
   textAlign: "center",
 };
 
 const titleCenteredStyle: CSSProperties = {
   fontSize: 52,
   lineHeight: 1.05,
-  margin: "0 auto 22px",
+  margin: "0 auto 18px",
   maxWidth: 1050,
 };
 
 const subtitleCenteredStyle: CSSProperties = {
   fontSize: 20,
   color: "#475569",
-  maxWidth: 900,
-  margin: "0 auto 34px",
+  maxWidth: 980,
+  margin: "0 auto 18px",
   lineHeight: 1.5,
 };
 
 const badgeStyle: CSSProperties = {
   color: "#059669",
   fontWeight: 700,
-  marginBottom: 18,
-};
-
-const roleGridTopStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-  gap: 18,
-  maxWidth: 1250,
-  margin: "0 auto",
-};
-
-const roleCardTopStyle: CSSProperties = {
-  background: "white",
-  padding: 20,
-  borderRadius: 22,
-  textDecoration: "none",
-  color: "#0f172a",
-  boxShadow: "0 10px 28px rgba(15,23,42,0.08)",
-  border: "1px solid #e2e8f0",
-  minHeight: 170,
-  textAlign: "left",
-};
-
-const iconStyle: CSSProperties = {
-  fontSize: 32,
-  marginBottom: 8,
+  marginBottom: 14,
 };
 
 const marketButtonDarkStyle: CSSProperties = {
@@ -404,8 +370,8 @@ const marketButtonDarkStyle: CSSProperties = {
 };
 
 const forecastSectionStyle: CSSProperties = {
-  margin: "26px auto 70px",
-  maxWidth: 1280,
+  margin: "18px auto 70px",
+  maxWidth: 1320,
   background: "white",
   borderRadius: 32,
   padding: 36,
@@ -473,21 +439,4 @@ const stepStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   fontWeight: 800,
-};
-const headerRoleLinksStyle: CSSProperties = {
-  display: "flex",
-  gap: 10,
-  justifyContent: "center",
-};
-
-const headerRoleButtonStyle: CSSProperties = {
-  background: "white",
-  border: "1px solid #e2e8f0",
-  borderRadius: 999,
-  padding: "10px 14px",
-  color: "#0f172a",
-  textDecoration: "none",
-  fontWeight: 700,
-  fontSize: 14,
-  boxShadow: "0 4px 14px rgba(15,23,42,0.05)",
 };
