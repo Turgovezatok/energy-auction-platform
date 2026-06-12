@@ -7,6 +7,7 @@ type PageProps = {
     technology?: string
   }
 }
+
 const technologies = [
   { key: 'solar', label: 'Solar' },
   { key: 'wind', label: 'Wind' },
@@ -56,9 +57,7 @@ export default async function CaptureAnalyticsPage({ searchParams }: PageProps) 
     return <div className="p-6">Грешка: {yearsError.message}</div>
   }
 
-  const years = Array.from(
-    new Set((yearsData || []).map((row) => row.year))
-  )
+  const years = Array.from(new Set((yearsData || []).map((row) => row.year)))
 
   const { data, error } = await supabase
     .from('technology_capture_timeblock_v')
@@ -74,27 +73,27 @@ export default async function CaptureAnalyticsPage({ searchParams }: PageProps) 
     <div className="p-6">
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-2">
+          <h1 className="mb-2 text-2xl font-bold">
             Technology Capture Analytics
           </h1>
 
-          <p className="text-gray-600">
+          <p className="max-w-4xl text-gray-600">
             Анализ на исторически постигнатите претеглени цени по технологии,
             сезони и часови блокове. Capture Price показва реалната постигната
             цена на профила в €/MWh.
           </p>
         </div>
 
-        <form className="flex flex-col gap-3 md:flex-row md:items-end">
+        <form className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:flex-row md:items-end">
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Година
             </label>
 
             <select
               name="year"
               defaultValue={selectedYear}
-              className="border rounded px-3 py-2"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
             >
               {years.map((year) => (
                 <option key={year} value={year}>
@@ -105,14 +104,14 @@ export default async function CaptureAnalyticsPage({ searchParams }: PageProps) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Технология
             </label>
 
             <select
               name="technology"
               defaultValue={selectedTechnology}
-              className="border rounded px-3 py-2"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
             >
               {technologies.map((technology) => (
                 <option key={technology.key} value={technology.key}>
@@ -124,91 +123,84 @@ export default async function CaptureAnalyticsPage({ searchParams }: PageProps) 
 
           <button
             type="submit"
-            className="rounded bg-black px-4 py-2 text-white"
+            className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
           >
             Покажи
           </button>
         </form>
       </div>
 
-      <div className="mb-6 rounded border bg-gray-50 p-4 text-sm text-gray-700">
+      <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
         <p className="mb-2">
           <strong>Capture Price</strong> е претеглената цена, която дадена
-          технология е постигнала исторически:
+          технология е постигнала исторически.
         </p>
 
         <p className="mb-2">
-          цена за часа × произведено количество за часа, сумирано за периода,
-          разделено на общото количество енергия за същия период.
+          Формула: цена за часа × произведено количество за часа, сумирано за
+          периода, разделено на общото количество енергия за същия период.
         </p>
 
         <p>
           <strong>Capture Rate %</strong> показва какъв дял е тази постигната
-          цена спрямо средната цена на базовия товар за съответния месец. Например
-          70% означава, че технологията е постигнала 70% от средната борсова цена,
-          а 120% означава, че е постигнала 20% над средната борсова цена.
+          цена спрямо средната цена на базовия товар за съответния месец.
         </p>
       </div>
 
       <CaptureCharts
-  data={data || []}
-  technology={selectedTechnology}
-  technologyLabel={selectedTechnologyLabel}
-/>
+        data={data || []}
+        technology={selectedTechnology}
+        technologyLabel={selectedTechnologyLabel}
+      />
+
       <h2 className="mb-3 text-xl font-semibold">
         {selectedTechnologyLabel} Capture Price по часови блокове, €/MWh
       </h2>
 
-      <div className="mb-8 overflow-x-auto">
-        <table className="min-w-full border border-green-200 text-sm">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border px-3 py-2">Година</th>
-              <th className="border px-3 py-2">Месец</th>
-              <th className="border px-3 py-2">Сезон</th>
-              <th className="border px-3 py-2">Market €/MWh</th>
-              <th className="border px-3 py-2">Day Market €/MWh</th>
-              <th className="border px-3 py-2">Evening Market €/MWh</th>
-              <th className="border px-3 py-2">Night Market €/MWh</th>
-              <th className="border px-3 py-2">
-                {selectedTechnologyLabel} Total €/MWh
-              </th>
-              <th className="border px-3 py-2">
-                {selectedTechnologyLabel} Day €/MWh
-              </th>
-              <th className="border px-3 py-2">
-                {selectedTechnologyLabel} Evening €/MWh
-              </th>
-              <th className="border px-3 py-2">
-                {selectedTechnologyLabel} Night €/MWh
-              </th>
+      <div className="mb-8 overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+        <table className="min-w-full border-collapse text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              {[
+                'Година',
+                'Месец',
+                'Сезон',
+                'Market €/MWh',
+                'Day Market €/MWh',
+                'Evening Market €/MWh',
+                'Night Market €/MWh',
+                `${selectedTechnologyLabel} Total €/MWh`,
+                `${selectedTechnologyLabel} Day €/MWh`,
+                `${selectedTechnologyLabel} Evening €/MWh`,
+                `${selectedTechnologyLabel} Night €/MWh`,
+              ].map((header) => (
+                <th
+                  key={header}
+                  className="whitespace-nowrap border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700"
+                >
+                  {header}
+                </th>
+              ))}
             </tr>
           </thead>
 
           <tbody>
-            {data?.map((row) => (
-              <tr key={`${row.year}-${row.month}`}>
-                <td className="border px-3 py-2">{row.year}</td>
-                <td className="border px-3 py-2">{row.month}</td>
-                <td className="border px-3 py-2">{row.season}</td>
-
-                <td className="border px-3 py-2">{formatPrice(row.avg_market_price)}</td>
-                <td className="border px-3 py-2">{formatPrice(row.day_market_price)}</td>
-                <td className="border px-3 py-2">{formatPrice(row.evening_market_price)}</td>
-                <td className="border px-3 py-2">{formatPrice(row.night_market_price)}</td>
-
-                <td className="border px-3 py-2">
-                  {formatPrice(getValue(row, selectedTechnology, 'capture_price'))}
-                </td>
-                <td className="border px-3 py-2">
-                  {formatPrice(getValue(row, selectedTechnology, 'day_capture_price'))}
-                </td>
-                <td className="border px-3 py-2">
-                  {formatPrice(getValue(row, selectedTechnology, 'evening_capture_price'))}
-                </td>
-                <td className="border px-3 py-2">
-                  {formatPrice(getValue(row, selectedTechnology, 'night_capture_price'))}
-                </td>
+            {(data || []).map((row) => (
+              <tr
+                key={`${row.year}-${row.month}`}
+                className="hover:bg-gray-50"
+              >
+                <td className="border border-gray-200 px-4 py-3">{row.year}</td>
+                <td className="border border-gray-200 px-4 py-3">{row.month}</td>
+                <td className="border border-gray-200 px-4 py-3">{row.season}</td>
+                <td className="border border-gray-200 px-4 py-3">{formatPrice(row.avg_market_price)}</td>
+                <td className="border border-gray-200 px-4 py-3">{formatPrice(row.day_market_price)}</td>
+                <td className="border border-gray-200 px-4 py-3">{formatPrice(row.evening_market_price)}</td>
+                <td className="border border-gray-200 px-4 py-3">{formatPrice(row.night_market_price)}</td>
+                <td className="border border-gray-200 px-4 py-3">{formatPrice(getValue(row, selectedTechnology, 'capture_price'))}</td>
+                <td className="border border-gray-200 px-4 py-3">{formatPrice(getValue(row, selectedTechnology, 'day_capture_price'))}</td>
+                <td className="border border-gray-200 px-4 py-3">{formatPrice(getValue(row, selectedTechnology, 'evening_capture_price'))}</td>
+                <td className="border border-gray-200 px-4 py-3">{formatPrice(getValue(row, selectedTechnology, 'night_capture_price'))}</td>
               </tr>
             ))}
           </tbody>
@@ -219,37 +211,40 @@ export default async function CaptureAnalyticsPage({ searchParams }: PageProps) 
         {selectedTechnologyLabel} Capture Rate %, спрямо средната базова цена
       </h2>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full border border-green-200 text-sm">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border px-3 py-2">Година</th>
-              <th className="border px-3 py-2">Месец</th>
-              <th className="border px-3 py-2">Сезон</th>
-              <th className="border px-3 py-2">Market €/MWh</th>
-              <th className="border px-3 py-2">Capture Price €/MWh</th>
-              <th className="border px-3 py-2">Capture Rate %</th>
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+        <table className="min-w-full border-collapse text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              {[
+                'Година',
+                'Месец',
+                'Сезон',
+                'Market €/MWh',
+                'Capture Price €/MWh',
+                'Capture Rate %',
+              ].map((header) => (
+                <th
+                  key={header}
+                  className="whitespace-nowrap border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700"
+                >
+                  {header}
+                </th>
+              ))}
             </tr>
           </thead>
 
           <tbody>
-            {data?.map((row) => (
-              <tr key={`rate-${row.year}-${row.month}`}>
-                <td className="border px-3 py-2">{row.year}</td>
-                <td className="border px-3 py-2">{row.month}</td>
-                <td className="border px-3 py-2">{row.season}</td>
-
-                <td className="border px-3 py-2">
-                  {formatPrice(row.avg_market_price)}
-                </td>
-
-                <td className="border px-3 py-2">
-                  {formatPrice(getValue(row, selectedTechnology, 'capture_price'))}
-                </td>
-
-                <td className="border px-3 py-2">
-                  {formatPrice(getValue(row, selectedTechnology, 'capture_rate_pct'))}%
-                </td>
+            {(data || []).map((row) => (
+              <tr
+                key={`rate-${row.year}-${row.month}`}
+                className="hover:bg-gray-50"
+              >
+                <td className="border border-gray-200 px-4 py-3">{row.year}</td>
+                <td className="border border-gray-200 px-4 py-3">{row.month}</td>
+                <td className="border border-gray-200 px-4 py-3">{row.season}</td>
+                <td className="border border-gray-200 px-4 py-3">{formatPrice(row.avg_market_price)}</td>
+                <td className="border border-gray-200 px-4 py-3">{formatPrice(getValue(row, selectedTechnology, 'capture_price'))}</td>
+                <td className="border border-gray-200 px-4 py-3">{formatPrice(getValue(row, selectedTechnology, 'capture_rate_pct'))}%</td>
               </tr>
             ))}
           </tbody>
