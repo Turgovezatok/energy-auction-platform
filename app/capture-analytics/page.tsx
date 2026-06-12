@@ -66,8 +66,29 @@ export default async function CaptureAnalyticsPage({ searchParams }: PageProps) 
     .eq('year', selectedYear)
     .order('month', { ascending: true })
 
+  const { data: profileData, error: profileError } = await supabase
+    .from('dview_price_profile_v')
+    .select('*')
+    .eq('year', selectedYear)
+    .order('month', { ascending: true })
+    .order('hour', { ascending: true })
+
+  const { data: durationData, error: durationError } = await supabase
+    .from('dview_duration_curve_v')
+    .select('*')
+    .eq('year', selectedYear)
+    .order('hour_rank', { ascending: true })
+
   if (error) {
     return <div className="p-6">Грешка: {error.message}</div>
+  }
+
+  if (profileError) {
+    return <div className="p-6">Грешка DView Profile: {profileError.message}</div>
+  }
+
+  if (durationError) {
+    return <div className="p-6">Грешка DView Duration Curve: {durationError.message}</div>
   }
 
   return (
@@ -154,6 +175,12 @@ export default async function CaptureAnalyticsPage({ searchParams }: PageProps) 
         technologyLabel={selectedTechnologyLabel}
       />
 
+      <DViewCharts
+        profileData={profileData || []}
+        durationData={durationData || []}
+        year={selectedYear}
+      />
+
       <h2 className="mb-3 text-xl font-semibold">
         {selectedTechnologyLabel} Capture Price по часови блокове, €/MWh
       </h2>
@@ -187,10 +214,7 @@ export default async function CaptureAnalyticsPage({ searchParams }: PageProps) 
 
           <tbody>
             {(data || []).map((row) => (
-              <tr
-                key={`${row.year}-${row.month}`}
-                className="hover:bg-gray-50"
-              >
+              <tr key={`${row.year}-${row.month}`} className="hover:bg-gray-50">
                 <td className="border border-gray-200 px-4 py-3">{row.year}</td>
                 <td className="border border-gray-200 px-4 py-3">{row.month}</td>
                 <td className="border border-gray-200 px-4 py-3">{row.season}</td>
@@ -236,10 +260,7 @@ export default async function CaptureAnalyticsPage({ searchParams }: PageProps) 
 
           <tbody>
             {(data || []).map((row) => (
-              <tr
-                key={`rate-${row.year}-${row.month}`}
-                className="hover:bg-gray-50"
-              >
+              <tr key={`rate-${row.year}-${row.month}`} className="hover:bg-gray-50">
                 <td className="border border-gray-200 px-4 py-3">{row.year}</td>
                 <td className="border border-gray-200 px-4 py-3">{row.month}</td>
                 <td className="border border-gray-200 px-4 py-3">{row.season}</td>
