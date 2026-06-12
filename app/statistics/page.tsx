@@ -121,17 +121,44 @@ export default async function StatisticsPage({ searchParams }: PageProps) {
             <thead style={thead}>
               <tr>
                 {[
-                  'Година',
-                  'Месец',
-                  'Сезон',
-                  'Цена базов товар €/MWh',
-                  'Цена на соларна енергия €/MWh',
-                  'Capture Rate %',
-                  'Цена за енергия от батерия €/MWh',
-                  'Соларна енергия MWh',
-                  'Енергия от батерия MWh',
-                ].map((header) => (
-                  <th key={header} style={th}>
+                  <>Година</>,
+                  <>Месец</>,
+                  <>Сезон</>,
+                  <>
+                    Цена базов товар
+                    <br />
+                    €/MWh
+                  </>,
+                  <>
+                    Цена на соларна енергия
+                    <br />
+                    €/MWh
+                  </>,
+                  <>
+                    Capture Rate
+                    <br />%
+                  </>,
+                  <>
+                    Цена за енергия от батерия
+                    <br />
+                    €/MWh
+                  </>,
+                  <>
+                    Соларна енергия
+                    <br />
+                    MWh
+                  </>,
+                  <>
+                    Енергия от батерия
+                    <br />
+                    MWh
+                  </>,
+                  <>
+                    Батерия спрямо солар
+                    <br />%
+                  </>,
+                ].map((header, index) => (
+                  <th key={index} style={th}>
                     {header}
                   </th>
                 ))}
@@ -149,6 +176,11 @@ export default async function StatisticsPage({ searchParams }: PageProps) {
                 const captureRate =
                   Number(row.avg_market_price) > 0
                     ? (Number(capturePrice) / Number(row.avg_market_price)) * 100
+                    : null
+
+                const batteryShare =
+                  selectedTechnology === 'solar' && Number(row.solar_pv_mwh) > 0
+                    ? (Number(row.solar_storage_mwh) / Number(row.solar_pv_mwh)) * 100
                     : null
 
                 return (
@@ -176,6 +208,11 @@ export default async function StatisticsPage({ searchParams }: PageProps) {
                     <td style={td}>
                       {selectedTechnology === 'solar'
                         ? formatMWh(row.solar_storage_mwh)
+                        : '-'}
+                    </td>
+                    <td style={td}>
+                      {Number.isFinite(batteryShare)
+                        ? `${formatPrice(batteryShare)}%`
                         : '-'}
                     </td>
                   </tr>
@@ -271,12 +308,16 @@ const thead: React.CSSProperties = {
 const th: React.CSSProperties = {
   border: '1px solid #cbd5e1',
   padding: 12,
-  textAlign: 'left',
-  whiteSpace: 'nowrap',
+  textAlign: 'center',
+  whiteSpace: 'normal',
+  lineHeight: 1.25,
+  verticalAlign: 'middle',
 }
 
 const td: React.CSSProperties = {
   border: '1px solid #cbd5e1',
   padding: 12,
   whiteSpace: 'nowrap',
+  textAlign: 'center',
+  verticalAlign: 'middle',
 }
