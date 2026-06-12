@@ -1,4 +1,6 @@
 'use client'
+
+import { useEffect, useMemo, useState } from 'react'
 import {
   LineChart,
   Line,
@@ -123,15 +125,29 @@ export default function DViewCharts({
   durationData,
   year,
 }: DViewChartsProps) {
-  const dailyProfile = buildDailyProfile(profileData)
-  const monthlyProfile = buildMonthlyProfile(profileData)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const dailyProfile = useMemo(
+    () => buildDailyProfile(profileData || []),
+    [profileData]
+  )
+
+  const monthlyProfile = useMemo(
+    () => buildMonthlyProfile(profileData || []),
+    [profileData]
+  )
+
+  if (!mounted) {
+    return null
+  }
 
   return (
     <div className="mb-8 space-y-8">
-
-      <div style={{ color: 'red', fontSize: '30px' }}>
-  DVIEW COMPONENT LOADED
-</div><div>
+      <div>
         <h2 className="mb-2 text-xl font-semibold">
           DView / SAM-style Time Series Viewer
         </h2>
@@ -153,7 +169,7 @@ export default function DViewCharts({
           канибализация, вечерни пикове и батерийна стратегия.
         </p>
 
-        <div className="h-[360px] w-full">
+        <div style={{ width: '100%', height: 360 }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={dailyProfile}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -186,7 +202,7 @@ export default function DViewCharts({
           ниски дневни цени и високи вечерни цени.
         </p>
 
-        <div className="h-[420px] w-full">
+        <div style={{ width: '100%', height: 420 }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={monthlyProfile}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -197,38 +213,10 @@ export default function DViewCharts({
                 labelFormatter={(label) => `Hour: ${label}`}
               />
               <Legend />
-              <Line
-                type="monotone"
-                dataKey="jan"
-                name="Jan"
-                strokeWidth={2}
-                dot={false}
-                connectNulls
-              />
-              <Line
-                type="monotone"
-                dataKey="apr"
-                name="Apr"
-                strokeWidth={2}
-                dot={false}
-                connectNulls
-              />
-              <Line
-                type="monotone"
-                dataKey="jul"
-                name="Jul"
-                strokeWidth={2}
-                dot={false}
-                connectNulls
-              />
-              <Line
-                type="monotone"
-                dataKey="oct"
-                name="Oct"
-                strokeWidth={2}
-                dot={false}
-                connectNulls
-              />
+              <Line type="monotone" dataKey="jan" name="Jan" strokeWidth={2} dot={false} connectNulls />
+              <Line type="monotone" dataKey="apr" name="Apr" strokeWidth={2} dot={false} connectNulls />
+              <Line type="monotone" dataKey="jul" name="Jul" strokeWidth={2} dot={false} connectNulls />
+              <Line type="monotone" dataKey="oct" name="Oct" strokeWidth={2} dot={false} connectNulls />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -244,14 +232,11 @@ export default function DViewCharts({
           показва колко често има екстремно високи, ниски или отрицателни цени.
         </p>
 
-        <div className="h-[360px] w-full">
+        <div style={{ width: '100%', height: 360 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={durationData}>
+            <LineChart data={durationData || []}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="hour_rank"
-                tickFormatter={(value) => String(value)}
-              />
+              <XAxis dataKey="hour_rank" />
               <YAxis />
               <Tooltip
                 formatter={(value) => [`${formatNumber(value)} €/MWh`, 'Price']}
