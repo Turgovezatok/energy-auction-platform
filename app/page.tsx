@@ -218,7 +218,23 @@ export default async function HomePage() {
       <header style={headerStyle}>
         <h2 style={{ margin: 0, color: "#059669" }}>⚡ EnergyBid</h2>
 
-        <nav style={navStyle}>
+        <nav style={navStyle}> <div style={headerRoleLinksStyle}>
+  <a href="/producer-onboarding" style={headerRoleButtonStyle}>
+    ☀️ Производители
+  </a>
+
+  <a href="/consumer-onboarding" style={headerRoleButtonStyle}>
+    🏭 Потребители
+  </a>
+
+  <a href="/prosumer-onboarding" style={headerRoleButtonStyle}>
+    🔋 Просюмъри
+  </a>
+
+  <a href="/trader-onboarding" style={headerRoleButtonStyle}>
+    📈 Търговци
+  </a>
+</div>
           <a href="#how">Как работи</a>
           <a href="/statistics">Статистики</a>
           <a href="/dview">DView</a>
@@ -240,8 +256,7 @@ export default async function HomePage() {
           по-добри решения.
         </p>
 
-        <div style={roleGridTopStyle}>
-          <a href="/producer-onboarding" style={roleCardTopStyle}>
+                <a href="/producer-onboarding" style={roleCardTopStyle}>
             <div style={iconStyle}>☀️</div>
             <h3>За производители</h3>
             <p>ФЕЦ, ВЕИ паркове, батерии, PPA и продажба на енергия.</p>
@@ -265,11 +280,7 @@ export default async function HomePage() {
             <p>Достъп до търгове, подаване на оферти и управление на клиенти.</p>
           </a>
 
-          <a href="/statistics" style={roleCardTopStyle}>
-            <div style={iconStyle}>📊</div>
-            <h3>Статистики</h3>
-            <p>Публични справки за Capture Price, Capture Rate и технологии.</p>
-          </a>
+          
         </div>
       </section>
 
@@ -312,10 +323,11 @@ const pageStyle: CSSProperties = {
 };
 
 const headerStyle: CSSProperties = {
-  padding: "22px 7%",
-  display: "flex",
-  justifyContent: "space-between",
+  padding: "16px 4%",
+  display: "grid",
+  gridTemplateColumns: "220px auto 1fr",
   alignItems: "center",
+  gap: 24,
   background: "rgba(248,250,252,0.95)",
   position: "sticky",
   top: 0,
@@ -461,4 +473,21 @@ const stepStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   fontWeight: 800,
+};
+const headerRoleLinksStyle: CSSProperties = {
+  display: "flex",
+  gap: 10,
+  justifyContent: "center",
+};
+
+const headerRoleButtonStyle: CSSProperties = {
+  background: "white",
+  border: "1px solid #e2e8f0",
+  borderRadius: 999,
+  padding: "10px 14px",
+  color: "#0f172a",
+  textDecoration: "none",
+  fontWeight: 700,
+  fontSize: 14,
+  boxShadow: "0 4px 14px rgba(15,23,42,0.05)",
 };
