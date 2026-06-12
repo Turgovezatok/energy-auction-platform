@@ -75,7 +75,8 @@ export default async function StatisticsPage({ searchParams }: PageProps) {
       <h1 style={title}>Статистики</h1>
 
       <p style={subtitle}>
-        Публична справка за пазарни цени, capture price и стойност на PV батерии.
+        Публична справка за цена на базов товар, цена на соларна енергия,
+        capture rate и стойност на енергия от батерия.
       </p>
 
       <form style={filterBar}>
@@ -123,12 +124,12 @@ export default async function StatisticsPage({ searchParams }: PageProps) {
                   'Година',
                   'Месец',
                   'Сезон',
-                  'Market €/MWh',
-                  `${selectedTechnologyLabel} €/MWh`,
-                  'PV Battery €/MWh',
-                  'Solar PV MWh',
-                  'PV Battery MWh',
+                  'Цена базов товар €/MWh',
+                  'Цена на соларна енергия €/MWh',
                   'Capture Rate %',
+                  'Цена за енергия от батерия €/MWh',
+                  'Соларна енергия MWh',
+                  'Енергия от батерия MWh',
                 ].map((header) => (
                   <th key={header} style={th}>
                     {header}
@@ -158,6 +159,11 @@ export default async function StatisticsPage({ searchParams }: PageProps) {
                     <td style={td}>{formatPrice(row.avg_market_price)}</td>
                     <td style={td}>{formatPrice(capturePrice)}</td>
                     <td style={td}>
+                      {Number.isFinite(captureRate)
+                        ? `${formatPrice(captureRate)}%`
+                        : '-'}
+                    </td>
+                    <td style={td}>
                       {selectedTechnology === 'solar'
                         ? formatPrice(row.solar_storage_capture_price)
                         : '-'}
@@ -170,11 +176,6 @@ export default async function StatisticsPage({ searchParams }: PageProps) {
                     <td style={td}>
                       {selectedTechnology === 'solar'
                         ? formatMWh(row.solar_storage_mwh)
-                        : '-'}
-                    </td>
-                    <td style={td}>
-                      {Number.isFinite(captureRate)
-                        ? `${formatPrice(captureRate)}%`
                         : '-'}
                     </td>
                   </tr>
