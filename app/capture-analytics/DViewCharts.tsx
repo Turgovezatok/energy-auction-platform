@@ -35,21 +35,6 @@ type DViewChartsProps = {
   year: number
 }
 
-const monthNames: Record<number, string> = {
-  1: 'Jan',
-  2: 'Feb',
-  3: 'Mar',
-  4: 'Apr',
-  5: 'May',
-  6: 'Jun',
-  7: 'Jul',
-  8: 'Aug',
-  9: 'Sep',
-  10: 'Oct',
-  11: 'Nov',
-  12: 'Dec',
-}
-
 function formatNumber(value: any) {
   const n = Number(value)
   if (!Number.isFinite(n)) return '-'
@@ -60,10 +45,15 @@ function buildDailyProfile(profileData: ProfileRow[]) {
   const grouped = new Map<number, { sum: number; count: number }>()
 
   profileData.forEach((row) => {
-    const current = grouped.get(row.hour) || { sum: 0, count: 0 }
-    current.sum += Number(row.avg_price || 0)
+    const hour = Number(row.hour)
+    const price = Number(row.avg_price)
+
+    if (!Number.isFinite(hour) || !Number.isFinite(price)) return
+
+    const current = grouped.get(hour) || { sum: 0, count: 0 }
+    current.sum += price
     current.count += 1
-    grouped.set(row.hour, current)
+    grouped.set(hour, current)
   })
 
   return Array.from(grouped.entries())
@@ -76,12 +66,57 @@ function buildDailyProfile(profileData: ProfileRow[]) {
 }
 
 function buildMonthlyProfile(profileData: ProfileRow[]) {
-  return profileData.map((row) => ({
-    ...row,
-    month_label: monthNames[row.month] || String(row.month),
-    hour_label: `${row.hour}:00`,
-    avg_price: Number(row.avg_price || 0),
-  }))
+  const grouped = new Map<
+    number,
+    {
+      hour: number
+      label: string
+      jan: number | null
+      apr: number | null
+      jul: number | null
+      oct: number | null
+    }
+  >()
+
+  for (let hour = 0; hour <= 23; hour += 1) {
+    grouped.set(hour, {
+      hour,
+      label: `${hour}:00`,
+      jan: null,
+      apr: null,
+      jul: null,
+      oct: null,
+    })
+  }
+
+  profileData.forEach((row) => {
+    const hour = Number(row.hour)
+    const month = Number(row.month)
+    const price = Number(row.avg_price)
+
+    if (!Number.isFinite(hour) || !Number.isFinite(month) || !Number.isFinite(price)) {
+      return
+    }
+
+    const current =
+      grouped.get(hour) || {
+        hour,
+        label: `${hour}:00`,
+        jan: null,
+        apr: null,
+        jul: null,
+        oct: null,
+      }
+
+    if (month === 1) current.jan = price
+    if (month === 4) current.apr = price
+    if (month === 7) current.jul = price
+    if (month === 10) current.oct = price
+
+    grouped.set(hour, current)
+  })
+
+  return Array.from(grouped.values()).sort((a, b) => a.hour - b.hour)
 }
 
 export default function DViewCharts({
@@ -116,7 +151,7 @@ export default function DViewCharts({
           канибализация, вечерни пикове и батерийна стратегия.
         </p>
 
-        <div className="h-[360px]">
+        <div className="h-[360px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={dailyProfile}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -132,6 +167,7 @@ export default function DViewCharts({
                 name="Average price"
                 strokeWidth={2}
                 dot={false}
+                connectNulls
               />
             </LineChart>
           </ResponsiveContainer>
@@ -148,30 +184,49 @@ export default function DViewCharts({
           ниски дневни цени и високи вечерни цени.
         </p>
 
-        <div className="h-[420px]">
+        <div className="h-[420px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={monthlyProfile}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="hour_label" />
+              <XAxis dataKey="label" />
               <YAxis />
               <Tooltip
                 formatter={(value) => [`${formatNumber(value)} €/MWh`, 'Price']}
                 labelFormatter={(label) => `Hour: ${label}`}
               />
               <Legend />
-              {[1, 4, 7, 10].map((month) => (
-                <Line
-                  key={month}
-                  type="monotone"
-                  dataKey={(row: any) =>
-                    row.month === month ? row.avg_price : null
-                  }
-                  name={monthNames[month]}
-                  strokeWidth={2}
-                  dot={false}
-                  connectNulls
-                />
-              ))}
+              <Line
+                type="monotone"
+                dataKey="jan"
+                name="Jan"
+                strokeWidth={2}
+                dot={false}
+                connectNulls
+              />
+              <Line
+                type="monotone"
+                dataKey="apr"
+                name="Apr"
+                strokeWidth={2}
+                dot={false}
+                connectNulls
+              />
+              <Line
+                type="monotone"
+                dataKey="jul"
+                name="Jul"
+                strokeWidth={2}
+                dot={false}
+                connectNulls
+              />
+              <Line
+                type="monotone"
+                dataKey="oct"
+                name="Oct"
+                strokeWidth={2}
+                dot={false}
+                connectNulls
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -187,7 +242,7 @@ export default function DViewCharts({
           показва колко често има екстремно високи, ниски или отрицателни цени.
         </p>
 
-        <div className="h-[360px]">
+        <div className="h-[360px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={durationData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -207,6 +262,7 @@ export default function DViewCharts({
                 name="Day-ahead price"
                 strokeWidth={2}
                 dot={false}
+                connectNulls
               />
             </LineChart>
           </ResponsiveContainer>
