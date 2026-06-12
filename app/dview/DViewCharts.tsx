@@ -128,7 +128,10 @@ export default function DViewCharts({
 
   return (
     <div className="mb-8 space-y-8">
-      <div>
+
+      <div style={{ color: 'red', fontSize: '30px' }}>
+  DVIEW COMPONENT LOADED
+</div><div>
         <h2 className="mb-2 text-xl font-semibold">
           DView / SAM-style Time Series Viewer
         </h2>
