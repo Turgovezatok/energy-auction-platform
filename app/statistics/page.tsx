@@ -8,7 +8,7 @@ type PageProps = {
 }
 
 const technologies = [
-  { key: 'solar', label: 'Solar' },
+  { key: 'solar', label: 'Solar PV' },
   { key: 'wind', label: 'Wind' },
   { key: 'hydro', label: 'Hydro' },
   { key: 'nuclear', label: 'Nuclear' },
@@ -20,6 +20,14 @@ function formatPrice(value: any) {
   const n = Number(value)
   if (!Number.isFinite(n)) return '-'
   return n.toFixed(2)
+}
+
+function formatMWh(value: any) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '-'
+  return n.toLocaleString('en-US', {
+    maximumFractionDigits: 1,
+  })
 }
 
 function getValue(row: any, technology: string, field: string) {
@@ -43,17 +51,17 @@ export default async function StatisticsPage({ searchParams }: PageProps) {
   const selectedTechnology = searchParams?.technology || 'solar'
 
   const selectedTechnologyLabel =
-    technologies.find((t) => t.key === selectedTechnology)?.label || 'Solar'
+    technologies.find((t) => t.key === selectedTechnology)?.label || 'Solar PV'
 
   const { data: yearsData } = await supabase
-    .from('technology_capture_timeblock_v')
+    .from('technology_capture_timeblock_clean_v')
     .select('year')
     .order('year', { ascending: false })
 
   const years = Array.from(new Set((yearsData || []).map((row) => row.year)))
 
   const { data, error } = await supabase
-    .from('technology_capture_timeblock_v')
+    .from('technology_capture_timeblock_clean_v')
     .select('*')
     .eq('year', selectedYear)
     .order('month', { ascending: true })
@@ -63,65 +71,31 @@ export default async function StatisticsPage({ searchParams }: PageProps) {
   }
 
   return (
-    <main style={{ padding: 32, maxWidth: 1400, margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
-      <h1 style={{ fontSize: 34, marginBottom: 8 }}>
-        Статистики
-      </h1>
+    <main style={page}>
+      <h1 style={title}>Статистики</h1>
 
-      <p style={{ fontSize: 16, color: '#555', marginBottom: 28 }}>
-        Публична справка за Capture Price и Capture Rate по технологии, години и часови блокове.
+      <p style={subtitle}>
+        Публична справка за пазарни цени, capture price и стойност на PV батерии.
       </p>
 
-      <form
-        style={{
-          display: 'flex',
-          gap: 16,
-          alignItems: 'end',
-          flexWrap: 'wrap',
-          padding: 20,
-          border: '1px solid #ddd',
-          borderRadius: 16,
-          background: '#f8fafc',
-          marginBottom: 32,
-        }}
-      >
+      <form style={filterBar}>
         <div>
-          <label style={{ display: 'block', fontWeight: 700, marginBottom: 8 }}>
-            Година
-          </label>
-          <select
-            name="year"
-            defaultValue={selectedYear}
-            style={{
-              minWidth: 160,
-              padding: '12px 14px',
-              borderRadius: 10,
-              border: '1px solid #bbb',
-              fontSize: 16,
-              background: 'white',
-            }}
-          >
+          <label style={label}>Година</label>
+          <select name="year" defaultValue={selectedYear} style={select}>
             {years.map((year) => (
-              <option key={year} value={year}>{year}</option>
+              <option key={year} value={year}>
+                {year}
+              </option>
             ))}
           </select>
         </div>
 
         <div>
-          <label style={{ display: 'block', fontWeight: 700, marginBottom: 8 }}>
-            Технология
-          </label>
+          <label style={label}>Технология</label>
           <select
             name="technology"
             defaultValue={selectedTechnology}
-            style={{
-              minWidth: 180,
-              padding: '12px 14px',
-              borderRadius: 10,
-              border: '1px solid #bbb',
-              fontSize: 16,
-              background: 'white',
-            }}
+            style={select}
           >
             {technologies.map((technology) => (
               <option key={technology.key} value={technology.key}>
@@ -131,91 +105,32 @@ export default async function StatisticsPage({ searchParams }: PageProps) {
           </select>
         </div>
 
-        <button
-          type="submit"
-          style={{
-            padding: '13px 28px',
-            borderRadius: 10,
-            border: 'none',
-            background: '#111827',
-            color: 'white',
-            fontSize: 16,
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
+        <button type="submit" style={button}>
           Покажи
         </button>
       </form>
 
       <section style={{ marginBottom: 40 }}>
-        <h2 style={{ fontSize: 24, marginBottom: 16 }}>
-          {selectedTechnologyLabel} Capture Price по часови блокове, €/MWh
+        <h2 style={sectionTitle}>
+          {selectedTechnologyLabel} — основна справка
         </h2>
 
-        <div style={{ overflowX: 'auto', border: '1px solid #ccc', borderRadius: 14 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead style={{ background: '#eef2f7' }}>
+        <div style={tableWrap}>
+          <table style={table}>
+            <thead style={thead}>
               <tr>
                 {[
                   'Година',
                   'Месец',
                   'Сезон',
                   'Market €/MWh',
-                  'Day Market €/MWh',
-                  'Evening Market €/MWh',
-                  'Night Market €/MWh',
-                  `${selectedTechnologyLabel} Total €/MWh`,
-                  `${selectedTechnologyLabel} Day €/MWh`,
-                  `${selectedTechnologyLabel} Evening €/MWh`,
-                  `${selectedTechnologyLabel} Night €/MWh`,
-                ].map((header) => (
-                  <th key={header} style={{ border: '1px solid #ccc', padding: 10, textAlign: 'left' }}>
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-
-            <tbody>
-              {(data || []).map((row) => (
-                <tr key={`${row.year}-${row.month}`}>
-                  <td style={cell}>{row.year}</td>
-                  <td style={cell}>{row.month}</td>
-                  <td style={cell}>{row.season}</td>
-                  <td style={cell}>{formatPrice(row.avg_market_price)}</td>
-                  <td style={cell}>{formatPrice(row.day_market_price)}</td>
-                  <td style={cell}>{formatPrice(row.evening_market_price)}</td>
-                  <td style={cell}>{formatPrice(row.night_market_price)}</td>
-                  <td style={cell}>{formatPrice(getValue(row, selectedTechnology, 'capture_price'))}</td>
-                  <td style={cell}>{formatPrice(getValue(row, selectedTechnology, 'day_capture_price'))}</td>
-                  <td style={cell}>{formatPrice(getValue(row, selectedTechnology, 'evening_capture_price'))}</td>
-                  <td style={cell}>{formatPrice(getValue(row, selectedTechnology, 'night_capture_price'))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <h2 style={{ fontSize: 24, marginBottom: 16 }}>
-          {selectedTechnologyLabel} Capture Rate %, спрямо средната базова цена
-        </h2>
-
-        <div style={{ overflowX: 'auto', border: '1px solid #ccc', borderRadius: 14 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead style={{ background: '#eef2f7' }}>
-              <tr>
-                {[
-                  'Година',
-                  'Месец',
-                  'Сезон',
-                  'Market €/MWh',
-                  'Capture Price €/MWh',
+                  `${selectedTechnologyLabel} €/MWh`,
+                  'PV Battery €/MWh',
+                  'Solar PV MWh',
+                  'PV Battery MWh',
                   'Capture Rate %',
                 ].map((header) => (
-                  <th key={header} style={{ border: '1px solid #ccc', padding: 10, textAlign: 'left' }}>
+                  <th key={header} style={th}>
                     {header}
                   </th>
                 ))}
@@ -223,16 +138,48 @@ export default async function StatisticsPage({ searchParams }: PageProps) {
             </thead>
 
             <tbody>
-              {(data || []).map((row) => (
-                <tr key={`rate-${row.year}-${row.month}`}>
-                  <td style={cell}>{row.year}</td>
-                  <td style={cell}>{row.month}</td>
-                  <td style={cell}>{row.season}</td>
-                  <td style={cell}>{formatPrice(row.avg_market_price)}</td>
-                  <td style={cell}>{formatPrice(getValue(row, selectedTechnology, 'capture_price'))}</td>
-                  <td style={cell}>{formatPrice(getValue(row, selectedTechnology, 'capture_rate_pct'))}%</td>
-                </tr>
-              ))}
+              {(data || []).map((row) => {
+                const capturePrice = getValue(
+                  row,
+                  selectedTechnology,
+                  'capture_price'
+                )
+
+                const captureRate =
+                  Number(row.avg_market_price) > 0
+                    ? (Number(capturePrice) / Number(row.avg_market_price)) * 100
+                    : null
+
+                return (
+                  <tr key={`${row.year}-${row.month}`}>
+                    <td style={td}>{row.year}</td>
+                    <td style={td}>{row.month}</td>
+                    <td style={td}>{row.season}</td>
+                    <td style={td}>{formatPrice(row.avg_market_price)}</td>
+                    <td style={td}>{formatPrice(capturePrice)}</td>
+                    <td style={td}>
+                      {selectedTechnology === 'solar'
+                        ? formatPrice(row.solar_storage_capture_price)
+                        : '-'}
+                    </td>
+                    <td style={td}>
+                      {selectedTechnology === 'solar'
+                        ? formatMWh(row.solar_pv_mwh)
+                        : formatMWh(getValue(row, selectedTechnology, 'mwh'))}
+                    </td>
+                    <td style={td}>
+                      {selectedTechnology === 'solar'
+                        ? formatMWh(row.solar_storage_mwh)
+                        : '-'}
+                    </td>
+                    <td style={td}>
+                      {Number.isFinite(captureRate)
+                        ? `${formatPrice(captureRate)}%`
+                        : '-'}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -241,8 +188,94 @@ export default async function StatisticsPage({ searchParams }: PageProps) {
   )
 }
 
-const cell = {
-  border: '1px solid #ccc',
-  padding: 10,
-  whiteSpace: 'nowrap' as const,
+const page: React.CSSProperties = {
+  padding: 32,
+  maxWidth: 1400,
+  margin: '0 auto',
+  fontFamily: 'Arial, sans-serif',
+}
+
+const title: React.CSSProperties = {
+  fontSize: 38,
+  marginBottom: 8,
+}
+
+const subtitle: React.CSSProperties = {
+  fontSize: 17,
+  color: '#555',
+  marginBottom: 28,
+}
+
+const filterBar: React.CSSProperties = {
+  display: 'flex',
+  gap: 18,
+  alignItems: 'end',
+  flexWrap: 'wrap',
+  padding: 22,
+  border: '1px solid #ddd',
+  borderRadius: 18,
+  background: '#f8fafc',
+  marginBottom: 34,
+}
+
+const label: React.CSSProperties = {
+  display: 'block',
+  fontWeight: 800,
+  marginBottom: 8,
+  fontSize: 15,
+}
+
+const select: React.CSSProperties = {
+  minWidth: 190,
+  padding: '14px 16px',
+  borderRadius: 12,
+  border: '1px solid #bbb',
+  fontSize: 17,
+  background: 'white',
+}
+
+const button: React.CSSProperties = {
+  padding: '15px 32px',
+  borderRadius: 12,
+  border: 'none',
+  background: '#111827',
+  color: 'white',
+  fontSize: 17,
+  fontWeight: 800,
+  cursor: 'pointer',
+}
+
+const sectionTitle: React.CSSProperties = {
+  fontSize: 25,
+  marginBottom: 16,
+}
+
+const tableWrap: React.CSSProperties = {
+  overflowX: 'auto',
+  border: '1px solid #cbd5e1',
+  borderRadius: 16,
+  background: 'white',
+}
+
+const table: React.CSSProperties = {
+  width: '100%',
+  borderCollapse: 'collapse',
+  fontSize: 14,
+}
+
+const thead: React.CSSProperties = {
+  background: '#e5eef8',
+}
+
+const th: React.CSSProperties = {
+  border: '1px solid #cbd5e1',
+  padding: 12,
+  textAlign: 'left',
+  whiteSpace: 'nowrap',
+}
+
+const td: React.CSSProperties = {
+  border: '1px solid #cbd5e1',
+  padding: 12,
+  whiteSpace: 'nowrap',
 }
