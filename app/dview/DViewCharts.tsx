@@ -8,7 +8,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   Legend,
 } from 'recharts'
 
@@ -159,101 +158,86 @@ export default function DViewCharts({
         </p>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <h3 className="mb-1 text-lg font-semibold">
           Average Daily Price Profile — {year}
         </h3>
 
         <p className="mb-4 text-sm text-gray-600">
-          Средна цена по час за избраната година. Полезно за анализ на соларна
-          канибализация, вечерни пикове и батерийна стратегия.
+          Средна цена по час за избраната година.
         </p>
 
-        <div style={{ width: '100%', height: 360 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={dailyProfile}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" />
-              <YAxis />
-              <Tooltip
-                formatter={(value) => [`${formatNumber(value)} €/MWh`, 'Price']}
-              />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="avg_price"
-                name="Average price"
-                strokeWidth={2}
-                dot={false}
-                connectNulls
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        <LineChart width={1100} height={360} data={dailyProfile}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="label" />
+          <YAxis />
+          <Tooltip
+            formatter={(value) => [`${formatNumber(value)} €/MWh`, 'Price']}
+          />
+          <Legend />
+          <Line
+            type="monotone"
+            dataKey="avg_price"
+            name="Average price"
+            strokeWidth={2}
+            dot={false}
+            connectNulls
+          />
+        </LineChart>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <h3 className="mb-1 text-lg font-semibold">
           Monthly Hourly Price Profiles — {year}
         </h3>
 
         <p className="mb-4 text-sm text-gray-600">
-          Средна цена по час и месец. Това показва сезонното изместване на
-          ниски дневни цени и високи вечерни цени.
+          Средна цена по час и месец.
         </p>
 
-        <div style={{ width: '100%', height: 420 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={monthlyProfile}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" />
-              <YAxis />
-              <Tooltip
-                formatter={(value) => [`${formatNumber(value)} €/MWh`, 'Price']}
-                labelFormatter={(label) => `Hour: ${label}`}
-              />
-              <Legend />
-              <Line type="monotone" dataKey="jan" name="Jan" strokeWidth={2} dot={false} connectNulls />
-              <Line type="monotone" dataKey="apr" name="Apr" strokeWidth={2} dot={false} connectNulls />
-              <Line type="monotone" dataKey="jul" name="Jul" strokeWidth={2} dot={false} connectNulls />
-              <Line type="monotone" dataKey="oct" name="Oct" strokeWidth={2} dot={false} connectNulls />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        <LineChart width={1100} height={420} data={monthlyProfile}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="label" />
+          <YAxis />
+          <Tooltip
+            formatter={(value) => [`${formatNumber(value)} €/MWh`, 'Price']}
+            labelFormatter={(label) => `Hour: ${label}`}
+          />
+          <Legend />
+          <Line type="monotone" dataKey="jan" name="Jan" strokeWidth={2} dot={false} connectNulls />
+          <Line type="monotone" dataKey="apr" name="Apr" strokeWidth={2} dot={false} connectNulls />
+          <Line type="monotone" dataKey="jul" name="Jul" strokeWidth={2} dot={false} connectNulls />
+          <Line type="monotone" dataKey="oct" name="Oct" strokeWidth={2} dot={false} connectNulls />
+        </LineChart>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <h3 className="mb-1 text-lg font-semibold">
           Price Duration Curve — {year}
         </h3>
 
         <p className="mb-4 text-sm text-gray-600">
-          Всички часове са подредени от най-висока към най-ниска цена. Това
-          показва колко често има екстремно високи, ниски или отрицателни цени.
+          Всички часове са подредени от най-висока към най-ниска цена.
         </p>
 
-        <div style={{ width: '100%', height: 360 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={durationData || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="hour_rank" />
-              <YAxis />
-              <Tooltip
-                formatter={(value) => [`${formatNumber(value)} €/MWh`, 'Price']}
-                labelFormatter={(label) => `Hour rank: ${label}`}
-              />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="dayahead_price"
-                name="Day-ahead price"
-                strokeWidth={2}
-                dot={false}
-                connectNulls
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        <LineChart width={1100} height={360} data={durationData || []}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="hour_rank" />
+          <YAxis />
+          <Tooltip
+            formatter={(value) => [`${formatNumber(value)} €/MWh`, 'Price']}
+            labelFormatter={(label) => `Hour rank: ${label}`}
+          />
+          <Legend />
+          <Line
+            type="monotone"
+            dataKey="dayahead_price"
+            name="Day-ahead price"
+            strokeWidth={2}
+            dot={false}
+            connectNulls
+          />
+        </LineChart>
       </div>
     </div>
   )
