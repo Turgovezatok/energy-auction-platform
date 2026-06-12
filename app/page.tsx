@@ -22,7 +22,6 @@ async function getLatestForecast(): Promise<ForecastRow[]> {
   );
 
   const latestRun = await latestRunRes.json();
-
   const forecastRunId = latestRun?.[0]?.forecast_run_id;
 
   if (!forecastRunId) return [];
@@ -46,27 +45,38 @@ function ForecastChart({ data }: { data: ForecastRow[] }) {
   }
 
   const prices = data.map((d) => Number(d.forecast_price_eur_mwh));
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
+  const minRaw = Math.min(...prices);
+  const maxRaw = Math.max(...prices);
   const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
 
-  const width = 1000;
-  const height = 300;
-  const padding = 40;
+  const yMin = Math.floor((minRaw - 10) / 10) * 10;
+  const yMax = Math.ceil((maxRaw + 10) / 10) * 10;
+
+  const width = 1100;
+  const height = 380;
+  const paddingLeft = 78;
+  const paddingRight = 30;
+  const paddingTop = 28;
+  const paddingBottom = 46;
+
+  const chartWidth = width - paddingLeft - paddingRight;
+  const chartHeight = height - paddingTop - paddingBottom;
+
+  function getX(index: number) {
+    return paddingLeft + (index / (data.length - 1)) * chartWidth;
+  }
+
+  function getY(price: number) {
+    return paddingTop + ((yMax - price) / (yMax - yMin || 1)) * chartHeight;
+  }
 
   const points = data
-    .map((d, index) => {
-      const x =
-        padding + (index / (data.length - 1)) * (width - padding * 2);
-      const y =
-        height -
-        padding -
-        ((Number(d.forecast_price_eur_mwh) - min) / (max - min || 1)) *
-          (height - padding * 2);
-
-      return `${x},${y}`;
-    })
+    .map((d, index) => `${getX(index)},${getY(Number(d.forecast_price_eur_mwh))}`)
     .join(" ");
+
+  const yTicks = Array.from({ length: 5 }).map((_, i) => {
+    return yMin + i * ((yMax - yMin) / 4);
+  });
 
   return (
     <section style={forecastSectionStyle}>
@@ -91,29 +101,56 @@ function ForecastChart({ data }: { data: ForecastRow[] }) {
         </div>
         <div style={forecastKpiStyle}>
           <span>Minimum</span>
-          <strong>{min.toFixed(1)} €/MWh</strong>
+          <strong>{minRaw.toFixed(1)} €/MWh</strong>
         </div>
         <div style={forecastKpiStyle}>
           <span>Maximum</span>
-          <strong>{max.toFixed(1)} €/MWh</strong>
+          <strong>{maxRaw.toFixed(1)} €/MWh</strong>
         </div>
       </div>
 
       <svg viewBox={`0 0 ${width} ${height}`} style={chartStyle}>
-        {[0, 1, 2, 3].map((i) => {
-          const y = padding + i * ((height - padding * 2) / 3);
+        {yTicks.map((tick) => {
+          const y = getY(tick);
+
           return (
-            <line
-              key={i}
-              x1={padding}
-              x2={width - padding}
-              y1={y}
-              y2={y}
-              stroke="#e2e8f0"
-              strokeDasharray="4 4"
-            />
+            <g key={tick}>
+              <line
+                x1={paddingLeft}
+                x2={width - paddingRight}
+                y1={y}
+                y2={y}
+                stroke="#e2e8f0"
+                strokeDasharray="4 4"
+              />
+              <text
+                x={paddingLeft - 14}
+                y={y + 5}
+                textAnchor="end"
+                fontSize="13"
+                fill="#475569"
+              >
+                {tick.toFixed(0)} €
+              </text>
+            </g>
           );
         })}
+
+        <line
+          x1={paddingLeft}
+          x2={paddingLeft}
+          y1={paddingTop}
+          y2={height - paddingBottom}
+          stroke="#94a3b8"
+        />
+
+        <line
+          x1={paddingLeft}
+          x2={width - paddingRight}
+          y1={height - paddingBottom}
+          y2={height - paddingBottom}
+          stroke="#94a3b8"
+        />
 
         <polyline
           points={points}
@@ -125,13 +162,9 @@ function ForecastChart({ data }: { data: ForecastRow[] }) {
         />
 
         {data.map((d, index) => {
-          const x =
-            padding + (index / (data.length - 1)) * (width - padding * 2);
-          const y =
-            height -
-            padding -
-            ((Number(d.forecast_price_eur_mwh) - min) / (max - min || 1)) *
-              (height - padding * 2);
+          const price = Number(d.forecast_price_eur_mwh);
+          const x = getX(index);
+          const y = getY(price);
 
           const hour = new Date(d.timestamp_utc).toLocaleTimeString("bg-BG", {
             hour: "2-digit",
@@ -141,11 +174,16 @@ function ForecastChart({ data }: { data: ForecastRow[] }) {
 
           return (
             <g key={d.timestamp_utc}>
-              <circle cx={x} cy={y} r="4" fill="#0284c7" />
+              <circle cx={x} cy={y} r="5" fill="#0284c7">
+                <title>
+                  {hour} — {price.toFixed(2)} €/MWh
+                </title>
+              </circle>
+
               {index % 2 === 0 && (
                 <text
                   x={x}
-                  y={height - 8}
+                  y={height - 14}
                   textAnchor="middle"
                   fontSize="13"
                   fill="#475569"
@@ -156,6 +194,17 @@ function ForecastChart({ data }: { data: ForecastRow[] }) {
             </g>
           );
         })}
+
+        <text
+          x={22}
+          y={height / 2}
+          textAnchor="middle"
+          fontSize="13"
+          fill="#475569"
+          transform={`rotate(-90 22 ${height / 2})`}
+        >
+          €/MWh
+        </text>
       </svg>
     </section>
   );
@@ -178,61 +227,48 @@ export default async function HomePage() {
         </nav>
       </header>
 
-      <section style={heroStyle}>
-        <div>
-          <div style={badgeStyle}>Reverse auction платформа за електроенергия</div>
+      <section style={heroIntroStyle}>
+        <div style={badgeStyle}>Reverse auction платформа за електроенергия</div>
 
-          <h1 style={titleStyle}>
-            Изберете своя профил и започнете правилния процес
-          </h1>
+        <h1 style={titleCenteredStyle}>
+          Изберете своя профил и започнете правилния процес
+        </h1>
 
-          <p style={subtitleStyle}>
-            Потребители, просюмъри, производители и търговци влизат през
-            отделен процес, за да няма объркване при регистрация, фактури,
-            активи и оферти.
-          </p>
+        <p style={subtitleCenteredStyle}>
+          Потребители, просюмъри, производители и търговци влизат през отделен
+          процес. EnergyBid добавя прогнозиране, пазарни сигнали и аналитика за
+          по-добри решения.
+        </p>
 
-          <div style={roleGridStyle}>
-            <a href="/producer-onboarding" style={roleCardStyle}>
-              <div style={iconStyle}>☀️</div>
-              <h3>За производители</h3>
-              <p>ФЕЦ, ВЕИ паркове, батерии, PPA и продажба на енергия.</p>
-            </a>
+        <div style={roleGridTopStyle}>
+          <a href="/producer-onboarding" style={roleCardTopStyle}>
+            <div style={iconStyle}>☀️</div>
+            <h3>За производители</h3>
+            <p>ФЕЦ, ВЕИ паркове, батерии, PPA и продажба на енергия.</p>
+          </a>
 
-            <a href="/consumer-onboarding" style={roleCardStyle}>
-              <div style={iconStyle}>🏭</div>
-              <h3>За потребители</h3>
-              <p>Попълване на данни, качване на фактура и създаване на търг.</p>
-            </a>
+          <a href="/consumer-onboarding" style={roleCardTopStyle}>
+            <div style={iconStyle}>🏭</div>
+            <h3>За потребители</h3>
+            <p>Попълване на данни, качване на фактура и създаване на търг.</p>
+          </a>
 
-            <a href="/prosumer-onboarding" style={roleCardStyle}>
-              <div style={iconStyle}>🔋</div>
-              <h3>За потребители с централа</h3>
-              <p>ФЕЦ, собствено потребление, излишък към мрежата и батерии.</p>
-            </a>
+          <a href="/prosumer-onboarding" style={roleCardTopStyle}>
+            <div style={iconStyle}>🔋</div>
+            <h3>За потребители с централа</h3>
+            <p>ФЕЦ, собствено потребление, излишък към мрежата и батерии.</p>
+          </a>
 
-            <a href="/trader-onboarding" style={roleCardStyle}>
-              <div style={iconStyle}>📈</div>
-              <h3>За търговци</h3>
-              <p>Достъп до търгове, подаване на оферти и управление на клиенти.</p>
-            </a>
+          <a href="/trader-onboarding" style={roleCardTopStyle}>
+            <div style={iconStyle}>📈</div>
+            <h3>За търговци</h3>
+            <p>Достъп до търгове, подаване на оферти и управление на клиенти.</p>
+          </a>
 
-            <a href="/statistics" style={roleCardStyle}>
-              <div style={iconStyle}>📊</div>
-              <h3>Статистики</h3>
-              <p>Публични справки за Capture Price, Capture Rate и технологии.</p>
-            </a>
-          </div>
-        </div>
-
-        <div style={marketCardStyle}>
-          <h3 style={{ fontSize: 28, marginTop: 0 }}>Пазарен обзор</h3>
-          <p style={{ color: "rgba(255,255,255,0.75)" }}>
-            Публични пазарни справки и статистики.
-          </p>
-
-          <a href="/statistics" style={marketButtonStyle}>
-            Виж статистики
+          <a href="/statistics" style={roleCardTopStyle}>
+            <div style={iconStyle}>📊</div>
+            <h3>Статистики</h3>
+            <p>Публични справки за Capture Price, Capture Rate и технологии.</p>
           </a>
         </div>
       </section>
@@ -293,12 +329,24 @@ const navStyle: CSSProperties = {
   fontSize: 16,
 };
 
-const heroStyle: CSSProperties = {
-  padding: "70px 7% 45px",
-  display: "grid",
-  gridTemplateColumns: "1.25fr 0.75fr",
-  gap: 50,
-  alignItems: "start",
+const heroIntroStyle: CSSProperties = {
+  padding: "62px 7% 28px",
+  textAlign: "center",
+};
+
+const titleCenteredStyle: CSSProperties = {
+  fontSize: 52,
+  lineHeight: 1.05,
+  margin: "0 auto 22px",
+  maxWidth: 1050,
+};
+
+const subtitleCenteredStyle: CSSProperties = {
+  fontSize: 20,
+  color: "#475569",
+  maxWidth: 900,
+  margin: "0 auto 34px",
+  lineHeight: 1.5,
 };
 
 const badgeStyle: CSSProperties = {
@@ -307,60 +355,29 @@ const badgeStyle: CSSProperties = {
   marginBottom: 18,
 };
 
-const titleStyle: CSSProperties = {
-  fontSize: 54,
-  lineHeight: 1.05,
-  margin: "0 0 24px",
-  maxWidth: 900,
-};
-
-const subtitleStyle: CSSProperties = {
-  fontSize: 20,
-  color: "#475569",
-  maxWidth: 820,
-  marginBottom: 34,
-  lineHeight: 1.5,
-};
-
-const roleGridStyle: CSSProperties = {
+const roleGridTopStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
   gap: 18,
+  maxWidth: 1250,
+  margin: "0 auto",
 };
 
-const roleCardStyle: CSSProperties = {
+const roleCardTopStyle: CSSProperties = {
   background: "white",
-  padding: 22,
+  padding: 20,
   borderRadius: 22,
   textDecoration: "none",
   color: "#0f172a",
   boxShadow: "0 10px 28px rgba(15,23,42,0.08)",
   border: "1px solid #e2e8f0",
-  minHeight: 190,
+  minHeight: 170,
+  textAlign: "left",
 };
 
 const iconStyle: CSSProperties = {
-  fontSize: 34,
-  marginBottom: 10,
-};
-
-const marketCardStyle: CSSProperties = {
-  background: "linear-gradient(135deg,#064e3b,#0369a1)",
-  borderRadius: 32,
-  padding: 30,
-  color: "white",
-  boxShadow: "0 30px 80px rgba(15,23,42,0.25)",
-};
-
-const marketButtonStyle: CSSProperties = {
-  display: "inline-block",
-  marginTop: 20,
-  background: "white",
-  color: "#064e3b",
-  padding: "14px 22px",
-  borderRadius: 14,
-  fontWeight: 800,
-  textDecoration: "none",
+  fontSize: 32,
+  marginBottom: 8,
 };
 
 const marketButtonDarkStyle: CSSProperties = {
@@ -375,11 +392,12 @@ const marketButtonDarkStyle: CSSProperties = {
 };
 
 const forecastSectionStyle: CSSProperties = {
-  margin: "0 7% 70px",
+  margin: "26px auto 70px",
+  maxWidth: 1280,
   background: "white",
-  borderRadius: 30,
-  padding: 34,
-  boxShadow: "0 18px 50px rgba(15,23,42,0.10)",
+  borderRadius: 32,
+  padding: 36,
+  boxShadow: "0 22px 60px rgba(15,23,42,0.12)",
   border: "1px solid #e2e8f0",
 };
 
@@ -393,7 +411,7 @@ const forecastHeaderStyle: CSSProperties = {
 
 const forecastTitleStyle: CSSProperties = {
   margin: "0 0 10px",
-  fontSize: 30,
+  fontSize: 34,
 };
 
 const forecastKpiGridStyle: CSSProperties = {
@@ -415,7 +433,7 @@ const forecastKpiStyle: CSSProperties = {
 
 const chartStyle: CSSProperties = {
   width: "100%",
-  height: 340,
+  height: 390,
   display: "block",
 };
 
