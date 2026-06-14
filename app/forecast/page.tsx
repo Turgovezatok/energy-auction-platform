@@ -47,7 +47,7 @@ export default function ForecastPage() {
       const result = await supabase
         .from("price_forecast_results")
         .select(
-          "timestamp_utc, forecast_price_eur_mwh, generation_forecast_mw, eso_load_forecast_mw, real_system_margin_mw, real_system_ratio, created_at, forecast_run_id"
+          "timestamp_utc, forecast_price_eur_mwh, generation_forecast_mw, eso_load_forecast_mw, real_system_margin_mw, real_system_ratio, created_at, forecast_run_id, model_name"
         )
         .eq("forecast_run_id", forecastRunId)
         .order("timestamp_utc", { ascending: true });
@@ -63,10 +63,29 @@ export default function ForecastPage() {
     loadData();
   }, []);
 
+  const formatDateTime = (value: string | Date) =>
+    new Date(value).toLocaleString("bg-BG", {
+      timeZone: "Europe/Sofia",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const formatDate = (value: string | Date) =>
+    new Date(value).toLocaleDateString("bg-BG", {
+      timeZone: "Europe/Sofia",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
   const chartData = useMemo(
     () =>
       data.map((row) => ({
         time: new Date(row.timestamp_utc).toLocaleString("bg-BG", {
+          timeZone: "Europe/Sofia",
           day: "2-digit",
           month: "2-digit",
           hour: "2-digit",
@@ -90,6 +109,16 @@ export default function ForecastPage() {
       </main>
     );
   }
+
+  const firstTimestamp = data[0]?.timestamp_utc;
+  const lastTimestamp = data[data.length - 1]?.timestamp_utc;
+  const modelName = data[0]?.model_name || "xgboost_dayahead_model_v2";
+
+  const forecastDate = firstTimestamp ? formatDate(firstTimestamp) : "-";
+  const deliveryPeriod =
+    firstTimestamp && lastTimestamp
+      ? `${formatDateTime(firstTimestamp)} – ${formatDateTime(lastTimestamp)}`
+      : "-";
 
   const minPrice = Math.min(...chartData.map((d) => d.price));
   const maxPrice = Math.max(...chartData.map((d) => d.price));
@@ -117,18 +146,43 @@ export default function ForecastPage() {
   return (
     <main className="min-h-screen bg-slate-100 p-6">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-6">
+        <div className="mb-6 rounded-2xl bg-white p-6 shadow-sm">
           <h1 className="text-3xl font-bold text-slate-900">
             EnergyBid Forecast
           </h1>
-          <p className="text-slate-600">
-            Последна прогноза:{" "}
-            {latestRun
-              ? new Date(latestRun).toLocaleString("bg-BG")
-              : "зарежда..."}
-          </p>
-          <p className="text-xs text-slate-400">
-            Forecast run: {latestRunId || "-"}
+
+          <div className="mt-4 grid gap-4 md:grid-cols-4">
+            <div>
+              <div className="text-sm text-slate-500">Прогноза за ден</div>
+              <div className="text-lg font-semibold text-slate-900">
+                {forecastDate}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-sm text-slate-500">Период на доставка</div>
+              <div className="text-lg font-semibold text-slate-900">
+                {deliveryPeriod}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-sm text-slate-500">Последно обновена</div>
+              <div className="text-lg font-semibold text-slate-900">
+                {latestRun ? formatDateTime(latestRun) : "зарежда..."}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-sm text-slate-500">Модел</div>
+              <div className="text-lg font-semibold text-slate-900">
+                {modelName}
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-3 text-xs text-slate-400">
+            Forecast run: {latestRunId || "-"} | Часова зона: Europe/Sofia
           </p>
         </div>
 
@@ -184,7 +238,7 @@ export default function ForecastPage() {
             <h3 className="mb-3 text-lg font-semibold">4 най-евтини часа</h3>
             {cheapest.map((row) => (
               <div key={row.timestamp_utc} className="flex justify-between border-b py-2">
-                <span>{new Date(row.timestamp_utc).toLocaleString("bg-BG")}</span>
+                <span>{formatDateTime(row.timestamp_utc)}</span>
                 <strong>{Number(row.forecast_price_eur_mwh).toFixed(2)} €/MWh</strong>
               </div>
             ))}
@@ -194,7 +248,7 @@ export default function ForecastPage() {
             <h3 className="mb-3 text-lg font-semibold">4 най-скъпи часа</h3>
             {mostExpensive.map((row) => (
               <div key={row.timestamp_utc} className="flex justify-between border-b py-2">
-                <span>{new Date(row.timestamp_utc).toLocaleString("bg-BG")}</span>
+                <span>{formatDateTime(row.timestamp_utc)}</span>
                 <strong>{Number(row.forecast_price_eur_mwh).toFixed(2)} €/MWh</strong>
               </div>
             ))}
@@ -217,9 +271,7 @@ export default function ForecastPage() {
             <tbody>
               {data.map((row) => (
                 <tr key={row.timestamp_utc} className="border-b hover:bg-slate-50">
-                  <td className="px-3 py-2">
-                    {new Date(row.timestamp_utc).toLocaleString("bg-BG")}
-                  </td>
+                  <td className="px-3 py-2">{formatDateTime(row.timestamp_utc)}</td>
                   <td className="px-3 py-2 font-semibold">
                     {Number(row.forecast_price_eur_mwh).toFixed(2)}
                   </td>
