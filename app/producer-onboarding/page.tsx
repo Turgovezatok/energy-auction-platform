@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
-
+import { useRouter } from "next/navigation";
 export default function ProducerOnboardingPage() {
+  const router = useRouter();
   const [companyEik, setCompanyEik] = useState("");
   const [records, setRecords] = useState<any[]>([]);
   const [selectedPlantKey, setSelectedPlantKey] = useState("");
@@ -173,6 +174,8 @@ export default function ProducerOnboardingPage() {
   }
 
   async function saveManualProducer() {
+    setMessage("Ръчно въведеният производител е записан успешно.");
+    router.push("/producer-onboarding/economic");
     const cleanEik = manualProducer.company_eik.trim() || companyEik.trim();
 
     if (
