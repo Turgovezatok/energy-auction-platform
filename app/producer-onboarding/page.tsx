@@ -19,6 +19,17 @@ export default function ProducerOnboardingPage() {
     contact_phone: "",
   });
 
+  const [manualProducer, setManualProducer] = useState({
+    company_eik: "",
+    company_name: "",
+    plant_name: "",
+    technology: "",
+    installed_capacity_mw: "",
+    location: "",
+    contact_email: "",
+    contact_phone: "",
+  });
+
   async function searchProducer() {
     setLoading(true);
     setMessage("");
@@ -34,6 +45,11 @@ export default function ProducerOnboardingPage() {
       setLoading(false);
       return;
     }
+
+    setManualProducer((current) => ({
+      ...current,
+      company_eik: cleanEik,
+    }));
 
     const { data, error } = await supabase
       .from("producers")
@@ -142,11 +158,9 @@ export default function ProducerOnboardingPage() {
       };
     });
 
-    const { error } = await supabase
-      .from("producer_assets")
-      .upsert(payload, {
-        onConflict: "company_eik,plant_name,location",
-      });
+    const { error } = await supabase.from("producer_assets").upsert(payload, {
+      onConflict: "company_eik,plant_name,location",
+    });
 
     setSaving(false);
 
@@ -156,6 +170,55 @@ export default function ProducerOnboardingPage() {
     }
 
     setMessage("Данните за контакт и батериите са записани успешно.");
+  }
+
+  async function saveManualProducer() {
+    const cleanEik = manualProducer.company_eik.trim() || companyEik.trim();
+
+    if (
+      !cleanEik ||
+      !manualProducer.company_name.trim() ||
+      !manualProducer.plant_name.trim() ||
+      !manualProducer.contact_email.trim() ||
+      !manualProducer.contact_phone.trim()
+    ) {
+      setMessage("Попълни ЕИК, име на фирма, име на централа, имейл и телефон.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+
+    const payload = {
+      company_eik: cleanEik,
+      company_name: manualProducer.company_name.trim(),
+      plant_name: manualProducer.plant_name.trim(),
+      location: manualProducer.location.trim() || null,
+      installed_capacity_mw: toNullableNumber(
+        manualProducer.installed_capacity_mw
+      ),
+      technology: manualProducer.technology.trim() || null,
+      energy_type: manualProducer.technology.trim() || null,
+      battery_power_kw: null,
+      battery_capacity_kwh: null,
+      contact_person: null,
+      contact_email: manualProducer.contact_email.trim(),
+      contact_phone: manualProducer.contact_phone.trim(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from("producer_assets").upsert(payload, {
+      onConflict: "company_eik,plant_name,location",
+    });
+
+    setSaving(false);
+
+    if (error) {
+      setMessage(`Грешка при запис: ${error.message}`);
+      return;
+    }
+
+    setMessage("Ръчно въведеният производител е записан успешно.");
   }
 
   return (
@@ -376,18 +439,103 @@ export default function ProducerOnboardingPage() {
             <h2>Ръчно въвеждане</h2>
 
             <div style={gridStyle}>
-              <Field label="ЕИК" value={companyEik} onChange={setCompanyEik} />
-              <Field label="Име на фирма" />
-              <Field label="Име на централа" />
-              <Field label="Тип централа" />
-              <Field label="Инсталирана мощност MW" />
-              <Field label="Локация" />
-              <Field label="Имейл" type="email" />
-              <Field label="Мобилен телефон" type="tel" />
+              <Field
+                label="ЕИК"
+                value={manualProducer.company_eik || companyEik}
+                onChange={(value) =>
+                  setManualProducer((current) => ({
+                    ...current,
+                    company_eik: value,
+                  }))
+                }
+              />
+
+              <Field
+                label="Име на фирма"
+                value={manualProducer.company_name}
+                onChange={(value) =>
+                  setManualProducer((current) => ({
+                    ...current,
+                    company_name: value,
+                  }))
+                }
+              />
+
+              <Field
+                label="Име на централа"
+                value={manualProducer.plant_name}
+                onChange={(value) =>
+                  setManualProducer((current) => ({
+                    ...current,
+                    plant_name: value,
+                  }))
+                }
+              />
+
+              <Field
+                label="Тип централа"
+                value={manualProducer.technology}
+                onChange={(value) =>
+                  setManualProducer((current) => ({
+                    ...current,
+                    technology: value,
+                  }))
+                }
+              />
+
+              <Field
+                label="Инсталирана мощност MW"
+                value={manualProducer.installed_capacity_mw}
+                onChange={(value) =>
+                  setManualProducer((current) => ({
+                    ...current,
+                    installed_capacity_mw: value,
+                  }))
+                }
+              />
+
+              <Field
+                label="Локация"
+                value={manualProducer.location}
+                onChange={(value) =>
+                  setManualProducer((current) => ({
+                    ...current,
+                    location: value,
+                  }))
+                }
+              />
+
+              <Field
+                label="Имейл"
+                type="email"
+                value={manualProducer.contact_email}
+                onChange={(value) =>
+                  setManualProducer((current) => ({
+                    ...current,
+                    contact_email: value,
+                  }))
+                }
+              />
+
+              <Field
+                label="Мобилен телефон"
+                type="tel"
+                value={manualProducer.contact_phone}
+                onChange={(value) =>
+                  setManualProducer((current) => ({
+                    ...current,
+                    contact_phone: value,
+                  }))
+                }
+              />
             </div>
 
-            <button style={primaryButtonStyle}>
-              Продължи с ръчно въведени данни
+            <button
+              onClick={saveManualProducer}
+              disabled={saving}
+              style={primaryButtonStyle}
+            >
+              {saving ? "Записване..." : "Продължи с ръчно въведени данни"}
             </button>
           </section>
         )}
