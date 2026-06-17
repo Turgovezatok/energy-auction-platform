@@ -52,60 +52,47 @@ async function getLatestForecast(): Promise<ForecastPayload> {
     Authorization: `Bearer ${supabaseKey}`,
   };
 
-  const dataRes = await fetch(
-    `${supabaseUrl}/rest/v1/vw_forecast_vs_actual_latest?select=timestamp_utc,timestamp_bg,forecast_price_eur_mwh,actual_price_eur_mwh,absolute_error_eur_mwh,absolute_error_pct,created_at&order=timestamp_utc.asc`,
-    { headers, cache: "no-store" }
-  );
+  try {
+    // 1. Fetch the latest run info
+    const latestRunRes = await fetch(
+      `${supabaseUrl}/rest/v1/price_forecast_results?select=forecast_run_id,created_at&order=created_at.desc&limit=1`,
+      { headers, cache: "no-store" }
+    );
 
-  if (!dataRes.ok) {
-    return { rows: [], updatedAt: null, modelName: null };
-  }
+    if (!latestRunRes.ok) {
+      return { rows: [], updatedAt: null, modelName: null };
+    }
 
-  const rows = await dataRes.json();
+    const latestRun = await latestRunRes.json();
+    const forecastRunId = latestRun?.[0]?.forecast_run_id;
+    const fallbackUpdatedAt = latestRun?.[0]?.created_at ?? null;
 
-  return {
-    rows,
-    updatedAt: rows?.[0]?.created_at ?? null,
-    modelName: null,
-  };
-}
+    if (!forecastRunId) {
+      return { rows: [], updatedAt: fallbackUpdatedAt, modelName: null };
+    }
 
-  const latestRunRes = await fetch(
-    `${supabaseUrl}/rest/v1/price_forecast_results?select=forecast_run_id,created_at&order=created_at.desc&limit=1`,
-    { headers, cache: "no-store" }
-  );
+    // 2. Fetch the latest view results
+    const dataRes = await fetch(
+      `${supabaseUrl}/rest/v1/vw_forecast_vs_actual_latest?select=timestamp_utc,timestamp_bg,forecast_price_eur_mwh,actual_price_eur_mwh,absolute_error_eur_mwh,absolute_error_pct,created_at&order=timestamp_utc.asc`,
+      { headers, cache: "no-store" }
+    );
 
-  if (!latestRunRes.ok) {
-    return { rows: [], updatedAt: null, modelName: null };
-  }
-
-  const latestRun = await latestRunRes.json();
-  const forecastRunId = latestRun?.[0]?.forecast_run_id;
-
-  if (!forecastRunId) {
-    return { rows: [], updatedAt: null, modelName: null };
-  }
-const dataRes = await fetch(
-  `${supabaseUrl}/rest/v1/vw_forecast_vs_actual_latest?select=timestamp_utc,timestamp_bg,forecast_price_eur_mwh,actual_price_eur_mwh,absolute_error_eur_mwh,absolute_error_pct,created_at&order=timestamp_utc.asc`,
-  { headers, cache: "no-store" }
-);
-    return {
-      rows: [],
-      updatedAt: latestRun?.[0]?.created_at ?? null,
-      modelName: null,
-    };
-  }
+    if (!dataRes.ok) {
+      return { rows: [], updatedAt: fallbackUpdatedAt, modelName: null };
+    }
 
     const rows = await dataRes.json();
 
-  return {
-    rows,
-    updatedAt: rows?.[0]?.created_at ?? latestRun?.[0]?.created_at ?? null,
-    modelName: null,
-  };
+    return {
+      rows,
+      updatedAt: rows?.[0]?.created_at ?? fallbackUpdatedAt,
+      modelName: null,
+    };
+  } catch (error) {
+    console.error("Failed to fetch forecast details:", error);
+    return { rows: [], updatedAt: null, modelName: null };
+  }
 }
-
-async function getMarketExpectations(): Promise<MarketExpectations | null> {
 
 async function getMarketExpectations(): Promise<MarketExpectations | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -133,7 +120,6 @@ function formatNumber(value: number | null | undefined, digits = 1) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
   }
-
   return Number(value).toFixed(digits);
 }
 
@@ -171,11 +157,7 @@ function formatDateTime(dateValue: string | null | undefined) {
   });
 }
 
-function MarketIntelligence({
-  data,
-}: {
-  data: MarketExpectations | null;
-}) {
+function MarketIntelligence({ data }: { data: MarketExpectations | null }) {
   if (!data) {
     return (
       <section style={marketSectionStyle}>
@@ -517,312 +499,4 @@ export default async function HomePage() {
         <h1 style={titleCenteredStyle}>AI Electricity Price Forecast</h1>
 
         <p style={subtitleCenteredStyle}>
-          EnergyBid предоставя пазарни анализи, прогнози и статистики за
-          електроенергийния пазар, подпомагайки потребители, производители,
-          просюмъри и търговци при вземането на по-добри решения.
-        </p>
-      </section>
-
-      <ForecastChart
-        data={forecastPayload.rows}
-        updatedAt={forecastPayload.updatedAt}
-        modelName={forecastPayload.modelName}
-      />
-
-      <MarketIntelligence data={marketExpectations} />
-
-      <section id="how" style={infoSectionStyle}>
-        {[
-          [
-            "1",
-            "Потребителите качват фактура",
-            "Системата извлича автоматично клиент, ИТН, консумация, тарифи и период.",
-          ],
-          [
-            "2",
-            "Създава се търг",
-            "От извлечените данни се подготвя заявка за доставка на електроенергия.",
-          ],
-          [
-            "3",
-            "Търговците подават оферти",
-            "Платформата сравнява офертите и помага за избор на най-добри условия.",
-          ],
-        ].map(([number, title, text]) => (
-          <div key={title} style={infoCardStyle}>
-            <div style={stepStyle}>{number}</div>
-            <h3>{title}</h3>
-            <p style={{ color: "#64748b", lineHeight: 1.5 }}>{text}</p>
-          </div>
-        ))}
-      </section>
-    </main>
-  );
-}
-
-const pageStyle: CSSProperties = {
-  fontFamily: "Arial, sans-serif",
-  background: "#f8fafc",
-  minHeight: "100vh",
-  color: "#0f172a",
-};
-
-const headerStyle: CSSProperties = {
-  padding: "18px 4%",
-  display: "grid",
-  gridTemplateColumns: "180px 1fr auto",
-  alignItems: "center",
-  gap: 24,
-  background: "rgba(248,250,252,0.97)",
-  position: "sticky",
-  top: 0,
-  zIndex: 20,
-  borderBottom: "1px solid #e2e8f0",
-};
-
-const headerRoleLinksStyle: CSSProperties = {
-  display: "flex",
-  gap: 14,
-  justifyContent: "center",
-  flexWrap: "wrap",
-};
-
-const headerRoleButtonStyle: CSSProperties = {
-  background: "white",
-  border: "1px solid #dbeafe",
-  borderRadius: 999,
-  padding: "16px 24px",
-  minHeight: 56,
-  color: "#0f172a",
-  textDecoration: "none",
-  fontWeight: 800,
-  fontSize: 16,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  boxShadow: "0 8px 22px rgba(15,23,42,0.08)",
-};
-
-const navStyle: CSSProperties = {
-  display: "flex",
-  gap: 18,
-  fontSize: 15,
-  alignItems: "center",
-  whiteSpace: "nowrap",
-};
-
-const heroIntroStyle: CSSProperties = {
-  padding: "38px 7% 8px",
-  textAlign: "center",
-};
-
-const titleCenteredStyle: CSSProperties = {
-  fontSize: 52,
-  lineHeight: 1.05,
-  margin: "0 auto 18px",
-  maxWidth: 1050,
-};
-
-const subtitleCenteredStyle: CSSProperties = {
-  fontSize: 20,
-  color: "#475569",
-  maxWidth: 980,
-  margin: "0 auto 18px",
-  lineHeight: 1.5,
-};
-
-const badgeStyle: CSSProperties = {
-  color: "#059669",
-  fontWeight: 700,
-  marginBottom: 14,
-};
-
-const marketButtonDarkStyle: CSSProperties = {
-  display: "inline-block",
-  background: "#0f172a",
-  color: "white",
-  padding: "14px 22px",
-  borderRadius: 14,
-  fontWeight: 800,
-  textDecoration: "none",
-  whiteSpace: "nowrap",
-};
-
-const forecastSectionStyle: CSSProperties = {
-  margin: "18px auto 40px",
-  maxWidth: 1320,
-  background: "white",
-  borderRadius: 32,
-  padding: 36,
-  boxShadow: "0 22px 60px rgba(15,23,42,0.12)",
-  border: "1px solid #e2e8f0",
-};
-
-const forecastHeaderStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: 24,
-  marginBottom: 24,
-};
-
-const forecastTitleStyle: CSSProperties = {
-  margin: "0 0 10px",
-  fontSize: 34,
-};
-
-const forecastMetaStyle: CSSProperties = {
-  display: "flex",
-  gap: 18,
-  flexWrap: "wrap",
-  marginTop: 10,
-  color: "#475569",
-  fontSize: 14,
-  fontWeight: 600,
-};
-
-const forecastKpiGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: 16,
-  marginBottom: 26,
-};
-
-const forecastKpiStyle: CSSProperties = {
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-  borderRadius: 18,
-  padding: 18,
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
-};
-
-const chartStyle: CSSProperties = {
-  width: "100%",
-  height: 390,
-  display: "block",
-};
-
-const marketSectionStyle: CSSProperties = {
-  margin: "0 auto 70px",
-  maxWidth: 1320,
-  background: "white",
-  borderRadius: 32,
-  padding: 36,
-  boxShadow: "0 22px 60px rgba(15,23,42,0.10)",
-  border: "1px solid #e2e8f0",
-};
-
-const marketHeaderStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: 24,
-  marginBottom: 26,
-};
-
-const marketTitleStyle: CSSProperties = {
-  margin: "0 0 10px",
-  fontSize: 34,
-};
-
-const marketSubtitleStyle: CSSProperties = {
-  color: "#64748b",
-  fontSize: 16,
-  lineHeight: 1.55,
-  maxWidth: 820,
-};
-
-const marketCardGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-  gap: 18,
-};
-
-const marketCardStyle: CSSProperties = {
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-  borderRadius: 24,
-  padding: 24,
-  minHeight: 210,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-  gap: 10,
-};
-
-const marketIconStyle: CSSProperties = {
-  fontSize: 30,
-};
-
-const marketCardLabelStyle: CSSProperties = {
-  color: "#475569",
-  fontWeight: 800,
-};
-
-const marketCardValueStyle: CSSProperties = {
-  fontSize: 28,
-  lineHeight: 1.1,
-};
-
-const marketCardNoteStyle: CSSProperties = {
-  margin: 0,
-  color: "#64748b",
-  fontSize: 14,
-  lineHeight: 1.45,
-};
-
-const marketCardSourceStyle: CSSProperties = {
-  margin: 0,
-  color: "#94a3b8",
-  fontSize: 13,
-  lineHeight: 1.4,
-};
-
-const marketSignalGridStyle: CSSProperties = {
-  marginTop: 22,
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: 14,
-};
-
-const marketSignalStyle: CSSProperties = {
-  background: "#ecfdf5",
-  border: "1px solid #bbf7d0",
-  borderRadius: 18,
-  padding: 18,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  textAlign: "center",
-  gap: 8,
-};
-
-const infoSectionStyle: CSSProperties = {
-  padding: "20px 7% 90px",
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-  gap: 24,
-};
-
-const infoCardStyle: CSSProperties = {
-  background: "white",
-  padding: 30,
-  borderRadius: 24,
-  boxShadow: "0 14px 40px rgba(15,23,42,0.08)",
-};
-
-const stepStyle: CSSProperties = {
-  width: 42,
-  height: 42,
-  borderRadius: 12,
-  background: "#059669",
-  color: "white",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontWeight: 800,
-};
+          EnergyBid предоставя пазарни анализи
