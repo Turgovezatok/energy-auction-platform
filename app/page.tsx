@@ -52,6 +52,24 @@ async function getLatestForecast(): Promise<ForecastPayload> {
     Authorization: `Bearer ${supabaseKey}`,
   };
 
+  const dataRes = await fetch(
+    `${supabaseUrl}/rest/v1/vw_forecast_vs_actual_latest?select=timestamp_utc,timestamp_bg,forecast_price_eur_mwh,actual_price_eur_mwh,absolute_error_eur_mwh,absolute_error_pct,created_at&order=timestamp_utc.asc`,
+    { headers, cache: "no-store" }
+  );
+
+  if (!dataRes.ok) {
+    return { rows: [], updatedAt: null, modelName: null };
+  }
+
+  const rows = await dataRes.json();
+
+  return {
+    rows,
+    updatedAt: rows?.[0]?.created_at ?? null,
+    modelName: null,
+  };
+}
+
   const latestRunRes = await fetch(
     `${supabaseUrl}/rest/v1/price_forecast_results?select=forecast_run_id,created_at&order=created_at.desc&limit=1`,
     { headers, cache: "no-store" }
