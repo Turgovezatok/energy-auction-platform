@@ -78,13 +78,16 @@ const dataRes = await fetch(
     };
   }
 
-  const rows = await dataRes.json();
+    const rows = await dataRes.json();
 
- return {
-  rows,
-  updatedAt: rows?.[0]?.created_at ?? latestRun?.[0]?.created_at ?? null,
-  modelName: null,
-};
+  return {
+    rows,
+    updatedAt: rows?.[0]?.created_at ?? latestRun?.[0]?.created_at ?? null,
+    modelName: null,
+  };
+}
+
+async function getMarketExpectations(): Promise<MarketExpectations | null> {
 
 async function getMarketExpectations(): Promise<MarketExpectations | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
