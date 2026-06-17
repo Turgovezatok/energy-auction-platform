@@ -5,6 +5,29 @@ type ForecastRow = {
   forecast_price_eur_mwh: number;
 };
 
+type MarketExpectations = {
+  year: number;
+  month: number;
+  eex_trade_date: string;
+  quarter_contract: string;
+  eex_quarter_price: number;
+  year_contract: string;
+  eex_year_price: number;
+  historical_base_price: number;
+  solar_capture_price: number;
+  solar_capture_rate_pct: number;
+  evening_market_price: number;
+  day_market_price: number;
+  night_market_price: number;
+  solar_battery_uplift_eur_mwh: number;
+  standalone_battery_premium_eur_mwh: number;
+  battery_opportunity_level: string;
+  solar_cannibalization_index: number;
+  intraday_volume_ratio_pct: number;
+  has_negative_price: boolean;
+  battery_arbitrage_signal_eur_mwh: number;
+};
+
 async function getLatestForecast(): Promise<ForecastRow[]> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -32,6 +55,144 @@ async function getLatestForecast(): Promise<ForecastRow[]> {
   );
 
   return dataRes.json();
+}
+
+async function getMarketExpectations(): Promise<MarketExpectations | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) return null;
+
+  const headers = {
+    apikey: supabaseKey,
+    Authorization: `Bearer ${supabaseKey}`,
+  };
+
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/vw_market_expectations?select=*&limit=1`,
+    { headers, cache: "no-store" }
+  );
+
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  return data?.[0] ?? null;
+}
+
+function formatNumber(value: number | null | undefined, digits = 1) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+
+  return Number(value).toFixed(digits);
+}
+
+function formatDate(dateValue: string | null | undefined) {
+  if (!dateValue) return "—";
+
+  return new Date(dateValue).toLocaleDateString("bg-BG", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function MarketIntelligence({
+  data,
+}: {
+  data: MarketExpectations | null;
+}) {
+  if (!data) {
+    return (
+      <section style={marketSectionStyle}>
+        <h2 style={marketTitleStyle}>Market Intelligence</h2>
+        <p style={{ color: "#64748b" }}>
+          Все още няма налични пазарни очаквания.
+        </p>
+      </section>
+    );
+  }
+
+  const cards = [
+    {
+      icon: "⚡",
+      label: `EEX ${data.quarter_contract}`,
+      value: `${formatNumber(data.eex_quarter_price, 2)} €/MWh`,
+      note: `BG Base Quarter · ${formatDate(data.eex_trade_date)}`,
+    },
+    {
+      icon: "📅",
+      label: `EEX ${data.year_contract}`,
+      value: `${formatNumber(data.eex_year_price, 2)} €/MWh`,
+      note: `BG Base Year · ${formatDate(data.eex_trade_date)}`,
+    },
+    {
+      icon: "☀️",
+      label: "Solar Capture",
+      value: `${formatNumber(data.solar_capture_price, 1)} €/MWh`,
+      note: `${formatNumber(data.solar_capture_rate_pct, 1)}% спрямо базов товар`,
+    },
+    {
+      icon: "🔋",
+      label: "Solar + Battery Uplift",
+      value: `+${formatNumber(data.solar_battery_uplift_eur_mwh, 1)} €/MWh`,
+      note: "Вечерна цена минус solar capture",
+    },
+  ];
+
+  return (
+    <section style={marketSectionStyle}>
+      <div style={marketHeaderStyle}>
+        <div>
+          <div style={badgeStyle}>Market Expectations</div>
+          <h2 style={marketTitleStyle}>Forward Economics</h2>
+          <p style={marketSubtitleStyle}>
+            Комбинация от EEX BG Futures, исторически базов товар, capture
+            analytics и стойност на батерия зад ФЕЦ.
+          </p>
+        </div>
+
+        <a href="/statistics" style={marketButtonDarkStyle}>
+          Open Statistics
+        </a>
+      </div>
+
+      <div style={marketCardGridStyle}>
+        {cards.map((card) => (
+          <div key={card.label} style={marketCardStyle}>
+            <div style={marketIconStyle}>{card.icon}</div>
+            <span style={marketCardLabelStyle}>{card.label}</span>
+            <strong style={marketCardValueStyle}>{card.value}</strong>
+            <p style={marketCardNoteStyle}>{card.note}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={marketSignalGridStyle}>
+        <div style={marketSignalStyle}>
+          <span>Battery Opportunity</span>
+          <strong>{data.battery_opportunity_level}</strong>
+        </div>
+
+        <div style={marketSignalStyle}>
+          <span>Solar Cannibalization Index</span>
+          <strong>{formatNumber(data.solar_cannibalization_index, 2)}</strong>
+        </div>
+
+        <div style={marketSignalStyle}>
+          <span>Intraday Ratio</span>
+          <strong>{formatNumber(data.intraday_volume_ratio_pct, 1)}%</strong>
+        </div>
+
+        <div style={marketSignalStyle}>
+          <span>Standalone Battery Premium</span>
+          <strong>
+            +{formatNumber(data.standalone_battery_premium_eur_mwh, 1)} €/MWh
+          </strong>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function ForecastChart({ data }: { data: ForecastRow[] }) {
@@ -211,7 +372,10 @@ function ForecastChart({ data }: { data: ForecastRow[] }) {
 }
 
 export default async function HomePage() {
-  const forecastData = await getLatestForecast();
+  const [forecastData, marketExpectations] = await Promise.all([
+    getLatestForecast(),
+    getMarketExpectations(),
+  ]);
 
   return (
     <main style={pageStyle}>
@@ -255,6 +419,8 @@ export default async function HomePage() {
       </section>
 
       <ForecastChart data={forecastData} />
+
+      <MarketIntelligence data={marketExpectations} />
 
       <section id="how" style={infoSectionStyle}>
         {[
@@ -374,7 +540,7 @@ const marketButtonDarkStyle: CSSProperties = {
 };
 
 const forecastSectionStyle: CSSProperties = {
-  margin: "18px auto 70px",
+  margin: "18px auto 40px",
   maxWidth: 1320,
   background: "white",
   borderRadius: 32,
@@ -417,6 +583,91 @@ const chartStyle: CSSProperties = {
   width: "100%",
   height: 390,
   display: "block",
+};
+
+const marketSectionStyle: CSSProperties = {
+  margin: "0 auto 70px",
+  maxWidth: 1320,
+  background: "white",
+  borderRadius: 32,
+  padding: 36,
+  boxShadow: "0 22px 60px rgba(15,23,42,0.10)",
+  border: "1px solid #e2e8f0",
+};
+
+const marketHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 24,
+  marginBottom: 26,
+};
+
+const marketTitleStyle: CSSProperties = {
+  margin: "0 0 10px",
+  fontSize: 34,
+};
+
+const marketSubtitleStyle: CSSProperties = {
+  color: "#64748b",
+  fontSize: 16,
+  lineHeight: 1.55,
+  maxWidth: 820,
+};
+
+const marketCardGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+  gap: 18,
+};
+
+const marketCardStyle: CSSProperties = {
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  borderRadius: 24,
+  padding: 24,
+  minHeight: 180,
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+};
+
+const marketIconStyle: CSSProperties = {
+  fontSize: 30,
+};
+
+const marketCardLabelStyle: CSSProperties = {
+  color: "#475569",
+  fontWeight: 800,
+};
+
+const marketCardValueStyle: CSSProperties = {
+  fontSize: 28,
+  lineHeight: 1.1,
+};
+
+const marketCardNoteStyle: CSSProperties = {
+  margin: 0,
+  color: "#64748b",
+  fontSize: 14,
+  lineHeight: 1.45,
+};
+
+const marketSignalGridStyle: CSSProperties = {
+  marginTop: 22,
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: 14,
+};
+
+const marketSignalStyle: CSSProperties = {
+  background: "#ecfdf5",
+  border: "1px solid #bbf7d0",
+  borderRadius: 18,
+  padding: 18,
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
 };
 
 const infoSectionStyle: CSSProperties = {
