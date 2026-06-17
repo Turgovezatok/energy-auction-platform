@@ -53,7 +53,6 @@ async function getLatestForecast(): Promise<ForecastPayload> {
   };
 
   try {
-    // 1. Fetch the latest run info
     const latestRunRes = await fetch(
       `${supabaseUrl}/rest/v1/price_forecast_results?select=forecast_run_id,created_at&order=created_at.desc&limit=1`,
       { headers, cache: "no-store" }
@@ -71,7 +70,6 @@ async function getLatestForecast(): Promise<ForecastPayload> {
       return { rows: [], updatedAt: fallbackUpdatedAt, modelName: null };
     }
 
-    // 2. Fetch the latest view results
     const dataRes = await fetch(
       `${supabaseUrl}/rest/v1/vw_forecast_vs_actual_latest?select=timestamp_utc,timestamp_bg,forecast_price_eur_mwh,actual_price_eur_mwh,absolute_error_eur_mwh,absolute_error_pct,created_at&order=timestamp_utc.asc`,
       { headers, cache: "no-store" }
@@ -358,145 +356,4 @@ function ForecastChart({
       </div>
 
       <svg viewBox={`0 0 ${width} ${height}`} style={chartStyle}>
-        {yTicks.map((tick) => {
-          const y = getY(tick);
-
-          return (
-            <g key={tick}>
-              <line
-                x1={paddingLeft}
-                x2={width - paddingRight}
-                y1={y}
-                y2={y}
-                stroke="#e2e8f0"
-                strokeDasharray="4 4"
-              />
-              <text
-                x={paddingLeft - 14}
-                y={y + 5}
-                textAnchor="end"
-                fontSize="13"
-                fill="#475569"
-              >
-                {tick.toFixed(0)} €
-              </text>
-            </g>
-          );
-        })}
-
-        <line
-          x1={paddingLeft}
-          x2={paddingLeft}
-          y1={paddingTop}
-          y2={height - paddingBottom}
-          stroke="#94a3b8"
-        />
-
-        <line
-          x1={paddingLeft}
-          x2={width - paddingRight}
-          y1={height - paddingBottom}
-          y2={height - paddingBottom}
-          stroke="#94a3b8"
-        />
-
-        <polyline
-          points={points}
-          fill="none"
-          stroke="#0284c7"
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {data.map((d, index) => {
-          const price = Number(d.forecast_price_eur_mwh);
-          const x = getX(index);
-          const y = getY(price);
-
-          const hour = new Date(d.timestamp_utc).toLocaleTimeString("bg-BG", {
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZone: "Europe/Sofia",
-          });
-
-          return (
-            <g key={d.timestamp_utc}>
-              <circle cx={x} cy={y} r="5" fill="#0284c7">
-                <title>
-                  {hour} — {price.toFixed(2)} €/MWh
-                </title>
-              </circle>
-
-              {index % 2 === 0 && (
-                <text
-                  x={x}
-                  y={height - 14}
-                  textAnchor="middle"
-                  fontSize="13"
-                  fill="#475569"
-                >
-                  {hour}
-                </text>
-              )}
-            </g>
-          );
-        })}
-
-        <text
-          x={22}
-          y={height / 2}
-          textAnchor="middle"
-          fontSize="13"
-          fill="#475569"
-          transform={`rotate(-90 22 ${height / 2})`}
-        >
-          €/MWh
-        </text>
-      </svg>
-    </section>
-  );
-}
-
-export default async function HomePage() {
-  const [forecastPayload, marketExpectations] = await Promise.all([
-    getLatestForecast(),
-    getMarketExpectations(),
-  ]);
-
-  return (
-    <main style={pageStyle}>
-      <header style={headerStyle}>
-        <h2 style={{ margin: 0, color: "#059669" }}>⚡ EnergyBid</h2>
-
-        <div style={headerRoleLinksStyle}>
-          <a href="/producer-onboarding" style={headerRoleButtonStyle}>
-            ☀️ За производители
-          </a>
-          <a href="/consumer-onboarding" style={headerRoleButtonStyle}>
-            🏭 За потребители
-          </a>
-          <a href="/prosumer-onboarding" style={headerRoleButtonStyle}>
-            🔋 За просюмъри
-          </a>
-          <a href="/trader-onboarding" style={headerRoleButtonStyle}>
-            📈 За търговци
-          </a>
-        </div>
-
-        <nav style={navStyle}>
-          <a href="#how">Как работи</a>
-          <a href="/statistics">Статистики</a>
-          <a href="/dview">DView</a>
-          <a href="/login">Вход</a>
-          <a href="/consumer-onboarding">Регистрация</a>
-        </nav>
-      </header>
-
-      <section style={heroIntroStyle}>
-        <div style={badgeStyle}>Reverse auction платформа за електроенергия</div>
-
-        <h1 style={titleCenteredStyle}>AI Electricity Price Forecast</h1>
-
-        <p style={subtitleCenteredStyle}>
-          EnergyBid предоставя пазарни анализи
+        {yTicks.map((
