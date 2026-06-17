@@ -113,30 +113,36 @@ function MarketIntelligence({
     );
   }
 
+  const periodLabel = `${String(data.month).padStart(2, "0")}.${data.year}`;
+
   const cards = [
     {
       icon: "⚡",
       label: `EEX ${data.quarter_contract}`,
       value: `${formatNumber(data.eex_quarter_price, 2)} €/MWh`,
-      note: `BG Base Quarter · ${formatDate(data.eex_trade_date)}`,
+      period: `Период: ${data.quarter_contract}`,
+      source: `Източник: EEX Futures · ${formatDate(data.eex_trade_date)}`,
     },
     {
       icon: "📅",
       label: `EEX ${data.year_contract}`,
       value: `${formatNumber(data.eex_year_price, 2)} €/MWh`,
-      note: `BG Base Year · ${formatDate(data.eex_trade_date)}`,
+      period: `Период: ${data.year_contract}`,
+      source: `Източник: EEX Futures · ${formatDate(data.eex_trade_date)}`,
     },
     {
       icon: "☀️",
-      label: "Solar Capture",
+      label: "Solar Capture Price",
       value: `${formatNumber(data.solar_capture_price, 1)} €/MWh`,
-      note: `${formatNumber(data.solar_capture_rate_pct, 1)}% спрямо базов товар`,
+      period: `Период: ${periodLabel}`,
+      source: "Източник: Technology Capture Analytics",
     },
     {
       icon: "🔋",
-      label: "Solar + Battery Uplift",
+      label: "Battery Uplift vs Solar",
       value: `+${formatNumber(data.solar_battery_uplift_eur_mwh, 1)} €/MWh`,
-      note: "Вечерна цена минус solar capture",
+      period: `Период: ${periodLabel}`,
+      source: "Източник: Technology Economics",
     },
   ];
 
@@ -163,7 +169,8 @@ function MarketIntelligence({
             <div style={marketIconStyle}>{card.icon}</div>
             <span style={marketCardLabelStyle}>{card.label}</span>
             <strong style={marketCardValueStyle}>{card.value}</strong>
-            <p style={marketCardNoteStyle}>{card.note}</p>
+            <p style={marketCardNoteStyle}>{card.period}</p>
+            <p style={marketCardSourceStyle}>{card.source}</p>
           </div>
         ))}
       </div>
@@ -172,16 +179,15 @@ function MarketIntelligence({
         <div style={marketSignalStyle}>
           <span>Battery Opportunity</span>
           <strong>{data.battery_opportunity_level}</strong>
+          <small>Период: последен IBEX месечен доклад</small>
+          <small>Източник: IBEX Market Intelligence</small>
         </div>
 
         <div style={marketSignalStyle}>
           <span>Solar Cannibalization Index</span>
           <strong>{formatNumber(data.solar_cannibalization_index, 2)}</strong>
-        </div>
-
-        <div style={marketSignalStyle}>
-          <span>Intraday Ratio</span>
-          <strong>{formatNumber(data.intraday_volume_ratio_pct, 1)}%</strong>
+          <small>Период: последен IBEX месечен доклад</small>
+          <small>Източник: IBEX Market Intelligence</small>
         </div>
 
         <div style={marketSignalStyle}>
@@ -189,6 +195,8 @@ function MarketIntelligence({
           <strong>
             +{formatNumber(data.standalone_battery_premium_eur_mwh, 1)} €/MWh
           </strong>
+          <small>Период: {periodLabel}</small>
+          <small>Източник: Technology Economics</small>
         </div>
       </div>
     </section>
@@ -626,9 +634,12 @@ const marketCardStyle: CSSProperties = {
   border: "1px solid #e2e8f0",
   borderRadius: 24,
   padding: 24,
-  minHeight: 180,
+  minHeight: 210,
   display: "flex",
   flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
   gap: 10,
 };
 
@@ -653,6 +664,13 @@ const marketCardNoteStyle: CSSProperties = {
   lineHeight: 1.45,
 };
 
+const marketCardSourceStyle: CSSProperties = {
+  margin: 0,
+  color: "#94a3b8",
+  fontSize: 13,
+  lineHeight: 1.4,
+};
+
 const marketSignalGridStyle: CSSProperties = {
   marginTop: 22,
   display: "grid",
@@ -667,6 +685,8 @@ const marketSignalStyle: CSSProperties = {
   padding: 18,
   display: "flex",
   flexDirection: "column",
+  alignItems: "center",
+  textAlign: "center",
   gap: 8,
 };
 
