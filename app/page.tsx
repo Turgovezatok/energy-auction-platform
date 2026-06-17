@@ -3,6 +3,14 @@ import type { CSSProperties } from "react";
 type ForecastRow = {
   timestamp_utc: string;
   forecast_price_eur_mwh: number;
+  model_name?: string;
+  created_at?: string;
+};
+
+type ForecastPayload = {
+  rows: ForecastRow[];
+  updatedAt: string | null;
+  modelName: string | null;
 };
 
 type MarketExpectations = {
@@ -28,11 +36,13 @@ type MarketExpectations = {
   battery_arbitrage_signal_eur_mwh: number;
 };
 
-async function getLatestForecast(): Promise<ForecastRow[]> {
+async function getLatestForecast(): Promise<ForecastPayload> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseKey) return [];
+  if (!supabaseUrl || !supabaseKey) {
+    return { rows: [], updatedAt: null, modelName: null };
+  }
 
   const headers = {
     apikey: supabaseKey,
@@ -44,17 +54,37 @@ async function getLatestForecast(): Promise<ForecastRow[]> {
     { headers, cache: "no-store" }
   );
 
+  if (!latestRunRes.ok) {
+    return { rows: [], updatedAt: null, modelName: null };
+  }
+
   const latestRun = await latestRunRes.json();
   const forecastRunId = latestRun?.[0]?.forecast_run_id;
 
-  if (!forecastRunId) return [];
+  if (!forecastRunId) {
+    return { rows: [], updatedAt: null, modelName: null };
+  }
 
   const dataRes = await fetch(
-    `${supabaseUrl}/rest/v1/price_forecast_results?select=timestamp_utc,forecast_price_eur_mwh&forecast_run_id=eq.${forecastRunId}&order=timestamp_utc.asc`,
+    `${supabaseUrl}/rest/v1/price_forecast_results?select=timestamp_utc,forecast_price_eur_mwh,model_name,created_at&forecast_run_id=eq.${forecastRunId}&order=timestamp_utc.asc`,
     { headers, cache: "no-store" }
   );
 
-  return dataRes.json();
+  if (!dataRes.ok) {
+    return {
+      rows: [],
+      updatedAt: latestRun?.[0]?.created_at ?? null,
+      modelName: null,
+    };
+  }
+
+  const rows = await dataRes.json();
+
+  return {
+    rows,
+    updatedAt: rows?.[0]?.created_at ?? latestRun?.[0]?.created_at ?? null,
+    modelName: rows?.[0]?.model_name ?? null,
+  };
 }
 
 async function getMarketExpectations(): Promise<MarketExpectations | null> {
@@ -94,6 +124,30 @@ function formatDate(dateValue: string | null | undefined) {
     day: "2-digit",
     month: "short",
     year: "numeric",
+  });
+}
+
+function formatDateLong(dateValue: string | null | undefined) {
+  if (!dateValue) return "—";
+
+  return new Date(dateValue).toLocaleDateString("bg-BG", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/Sofia",
+  });
+}
+
+function formatDateTime(dateValue: string | null | undefined) {
+  if (!dateValue) return "—";
+
+  return new Date(dateValue).toLocaleString("bg-BG", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Sofia",
   });
 }
 
@@ -203,7 +257,15 @@ function MarketIntelligence({
   );
 }
 
-function ForecastChart({ data }: { data: ForecastRow[] }) {
+function ForecastChart({
+  data,
+  updatedAt,
+  modelName,
+}: {
+  data: ForecastRow[];
+  updatedAt: string | null;
+  modelName: string | null;
+}) {
   if (!data.length) {
     return (
       <section style={forecastSectionStyle}>
@@ -217,6 +279,9 @@ function ForecastChart({ data }: { data: ForecastRow[] }) {
   const minRaw = Math.min(...prices);
   const maxRaw = Math.max(...prices);
   const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+
+  const forecastDate = formatDateLong(data[0]?.timestamp_utc);
+  const updatedAtLabel = formatDateTime(updatedAt);
 
   const yMin = Math.floor((minRaw - 10) / 10) * 10;
   const yMax = Math.ceil((maxRaw + 10) / 10) * 10;
@@ -256,6 +321,18 @@ function ForecastChart({ data }: { data: ForecastRow[] }) {
           <p style={{ color: "#64748b", fontSize: 16 }}>
             24-часова AI прогноза за цената на електроенергията по часове.
           </p>
+
+          <div style={forecastMetaStyle}>
+            <span>
+              📅 Прогноза за: <strong>{forecastDate}</strong>
+            </span>
+            <span>
+              🔄 Последно обновена: <strong>{updatedAtLabel}</strong>
+            </span>
+            <span>
+              🤖 Модел: <strong>{modelName ?? "XGBoost v2"}</strong>
+            </span>
+          </div>
         </div>
 
         <a href="/forecast" style={marketButtonDarkStyle}>
@@ -380,7 +457,7 @@ function ForecastChart({ data }: { data: ForecastRow[] }) {
 }
 
 export default async function HomePage() {
-  const [forecastData, marketExpectations] = await Promise.all([
+  const [forecastPayload, marketExpectations] = await Promise.all([
     getLatestForecast(),
     getMarketExpectations(),
   ]);
@@ -426,7 +503,11 @@ export default async function HomePage() {
         </p>
       </section>
 
-      <ForecastChart data={forecastData} />
+      <ForecastChart
+        data={forecastPayload.rows}
+        updatedAt={forecastPayload.updatedAt}
+        modelName={forecastPayload.modelName}
+      />
 
       <MarketIntelligence data={marketExpectations} />
 
@@ -568,6 +649,16 @@ const forecastHeaderStyle: CSSProperties = {
 const forecastTitleStyle: CSSProperties = {
   margin: "0 0 10px",
   fontSize: 34,
+};
+
+const forecastMetaStyle: CSSProperties = {
+  display: "flex",
+  gap: 18,
+  flexWrap: "wrap",
+  marginTop: 10,
+  color: "#475569",
+  fontSize: 14,
+  fontWeight: 600,
 };
 
 const forecastKpiGridStyle: CSSProperties = {
