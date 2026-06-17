@@ -2,8 +2,11 @@ import type { CSSProperties } from "react";
 
 type ForecastRow = {
   timestamp_utc: string;
+  timestamp_bg?: string;
   forecast_price_eur_mwh: number;
-  model_name?: string;
+  actual_price_eur_mwh?: number | null;
+  absolute_error_eur_mwh?: number | null;
+  absolute_error_pct?: number | null;
   created_at?: string;
 };
 
@@ -64,13 +67,10 @@ async function getLatestForecast(): Promise<ForecastPayload> {
   if (!forecastRunId) {
     return { rows: [], updatedAt: null, modelName: null };
   }
-
-  const dataRes = await fetch(
-    `${supabaseUrl}/rest/v1/price_forecast_results?select=timestamp_utc,forecast_price_eur_mwh,model_name,created_at&forecast_run_id=eq.${forecastRunId}&order=timestamp_utc.asc`,
-    { headers, cache: "no-store" }
-  );
-
-  if (!dataRes.ok) {
+const dataRes = await fetch(
+  `${supabaseUrl}/rest/v1/vw_forecast_vs_actual_latest?select=timestamp_utc,timestamp_bg,forecast_price_eur_mwh,actual_price_eur_mwh,absolute_error_eur_mwh,absolute_error_pct,created_at&order=timestamp_utc.asc`,
+  { headers, cache: "no-store" }
+);
     return {
       rows: [],
       updatedAt: latestRun?.[0]?.created_at ?? null,
@@ -80,12 +80,11 @@ async function getLatestForecast(): Promise<ForecastPayload> {
 
   const rows = await dataRes.json();
 
-  return {
-    rows,
-    updatedAt: rows?.[0]?.created_at ?? latestRun?.[0]?.created_at ?? null,
-    modelName: rows?.[0]?.model_name ?? null,
-  };
-}
+ return {
+  rows,
+  updatedAt: rows?.[0]?.created_at ?? latestRun?.[0]?.created_at ?? null,
+  modelName: null,
+};
 
 async function getMarketExpectations(): Promise<MarketExpectations | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
