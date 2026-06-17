@@ -3,6 +3,14 @@ import type { CSSProperties } from "react";
 type ForecastRow = {
   timestamp_utc: string;
   forecast_price_eur_mwh: number;
+  model_name?: string;
+  created_at?: string;
+};
+
+type ForecastPayload = {
+  rows: ForecastRow[];
+  updatedAt: string | null;
+  modelName: string | null;
 };
 
 type MarketExpectations = {
@@ -28,7 +36,52 @@ type MarketExpectations = {
   battery_arbitrage_signal_eur_mwh: number;
 };
 
-async function getLatestForecast(): Promise<ForecastRow[]> {
+async function getLatestForecast(): Promise<ForecastPayload> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return {
+      rows: [],
+      updatedAt: null,
+      modelName: null,
+    };
+  }
+
+  const headers = {
+    apikey: supabaseKey,
+    Authorization: `Bearer ${supabaseKey}`,
+  };
+
+  const latestRunRes = await fetch(
+    `${supabaseUrl}/rest/v1/price_forecast_results?select=forecast_run_id,created_at&order=created_at.desc&limit=1`,
+    { headers, cache: "no-store" }
+  );
+
+  const latestRun = await latestRunRes.json();
+  const forecastRunId = latestRun?.[0]?.forecast_run_id;
+
+  if (!forecastRunId) {
+    return {
+      rows: [],
+      updatedAt: null,
+      modelName: null,
+    };
+  }
+
+  const dataRes = await fetch(
+    `${supabaseUrl}/rest/v1/price_forecast_results?select=timestamp_utc,forecast_price_eur_mwh,model_name,created_at&forecast_run_id=eq.${forecastRunId}&order=timestamp_utc.asc`,
+    { headers, cache: "no-store" }
+  );
+
+  const rows = await dataRes.json();
+
+  return {
+    rows,
+    updatedAt: rows?.[0]?.created_at ?? null,
+    modelName: rows?.[0]?.model_name ?? null,
+  };
+} {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -203,7 +256,15 @@ function MarketIntelligence({
   );
 }
 
-function ForecastChart({ data }: { data: ForecastRow[] }) {
+function ForecastChart({
+  data,
+  updatedAt,
+  modelName,
+}: {
+  data: ForecastRow[];
+  updatedAt: string | null;
+  modelName: string | null;
+}) {
   if (!data.length) {
     return (
       <section style={forecastSectionStyle}>
@@ -217,7 +278,26 @@ function ForecastChart({ data }: { data: ForecastRow[] }) {
   const minRaw = Math.min(...prices);
   const maxRaw = Math.max(...prices);
   const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+const forecastDate =
+  data.length > 0
+    ? new Date(data[0].timestamp_utc).toLocaleDateString("bg-BG", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        timeZone: "Europe/Sofia",
+      })
+    : "—";
 
+const updatedAtLabel = updatedAt
+  ? new Date(updatedAt).toLocaleString("bg-BG", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Europe/Sofia",
+    })
+  : "—";
   const yMin = Math.floor((minRaw - 10) / 10) * 10;
   const yMax = Math.ceil((maxRaw + 10) / 10) * 10;
 
@@ -257,7 +337,21 @@ function ForecastChart({ data }: { data: ForecastRow[] }) {
             24-часова AI прогноза за цената на електроенергията по часове.
           </p>
         </div>
-
+<div
+  style={{
+    display: "flex",
+    gap: 18,
+    flexWrap: "wrap",
+    marginTop: 10,
+    color: "#475569",
+    fontSize: 14,
+    fontWeight: 600,
+  }}
+>
+  <span>📅 Прогноза за: {forecastDate}</span>
+  <span>🔄 Последно обновена: {updatedAtLabel}</span>
+  <span>🤖 Модел: {modelName ?? "XGBoost v2"}</span>
+</div>
         <a href="/forecast" style={marketButtonDarkStyle}>
           Open Full Forecast
         </a>
@@ -380,7 +474,7 @@ function ForecastChart({ data }: { data: ForecastRow[] }) {
 }
 
 export default async function HomePage() {
-  const [forecastData, marketExpectations] = await Promise.all([
+  const [forecastPayload, marketExpectations] = await Promise.all([
     getLatestForecast(),
     getMarketExpectations(),
   ]);
@@ -426,7 +520,11 @@ export default async function HomePage() {
         </p>
       </section>
 
-      <ForecastChart data={forecastData} />
+      <ForecastChart
+  data={forecastPayload.rows}
+  updatedAt={forecastPayload.updatedAt}
+  modelName={forecastPayload.modelName}
+/>
 
       <MarketIntelligence data={marketExpectations} />
 
