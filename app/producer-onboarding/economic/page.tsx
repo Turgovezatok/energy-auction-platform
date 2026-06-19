@@ -36,18 +36,23 @@ function ProducerEconomicContent() {
   }
 
   async function uploadInvoice(file: File | null, index: number) {
-    if (!file) return null;
+  if (!file) return null;
 
-    const path = `${companyEik || "unknown"}/${Date.now()}-invoice-${index}-${file.name}`;
+  const extension = file.name.split(".").pop() || "pdf";
 
-    const { error } = await supabase.storage
-      .from("producer-invoices")
-      .upload(path, file, { upsert: true });
+  const safeCompanyEik = companyEik || "unknown";
+  const safeFileName = `invoice-${index}-${Date.now()}.${extension}`;
 
-    if (error) throw new Error(error.message);
+  const path = `${safeCompanyEik}/${safeFileName}`;
 
-    return path;
-  }
+  const { error } = await supabase.storage
+    .from("producer-invoices")
+    .upload(path, file, { upsert: true });
+
+  if (error) throw new Error(error.message);
+
+  return path;
+}
 
   async function processInvoice() {
     if (!files.invoice1) {
