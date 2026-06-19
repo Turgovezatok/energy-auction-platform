@@ -50,10 +50,30 @@ function ProducerEconomicContent() {
   }
 
   async function processInvoice() {
-    if (!files.invoice1) {
-      setMessage("Моля, първо качете фактура, издадена към търговеца.");
-      return;
-    }
+  if (!files.invoice1) {
+    setMessage("Моля, първо качете фактура, издадена към търговеца.");
+    return;
+  }
+
+  setProcessing(true);
+  setMessage("");
+
+  try {
+    const invoicePath = await uploadInvoice(files.invoice1, 1);
+
+    setMessage(
+      `Фактурата е качена успешно. Път: ${invoicePath}`
+    );
+  } catch (error) {
+    setMessage(
+      error instanceof Error
+        ? error.message
+        : "Грешка при качване на фактура."
+    );
+  } finally {
+    setProcessing(false);
+  }
+}
 
     setProcessing(true);
     setMessage("");
