@@ -12,6 +12,7 @@ function ProducerEconomicContent() {
   const location = searchParams.get("location") || "";
 
   const [saving, setSaving] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState("");
 
   const [form, setForm] = useState({
@@ -21,31 +22,23 @@ function ProducerEconomicContent() {
     sale_price_bgn_mwh: "",
     balancing_cost_bgn_mwh: "",
     green_certificate_included: false,
-    support_scheme: "",
     notes: "",
   });
 
-  const [files, setFiles] = useState<{
-    invoice1: File | null;
-    invoice2: File | null;
-    invoice3: File | null;
-  }>({
-    invoice1: null,
-    invoice2: null,
-    invoice3: null,
+  const [files, setFiles] = useState({
+    invoice1: null as File | null,
+    invoice2: null as File | null,
+    invoice3: null as File | null,
   });
 
   function updateField(name: string, value: any) {
-    setForm((current) => ({
-      ...current,
-      [name]: value,
-    }));
+    setForm((current) => ({ ...current, [name]: value }));
   }
 
   async function uploadInvoice(file: File | null, index: number) {
     if (!file) return null;
 
-    const path = `${companyEik}/${Date.now()}-invoice-${index}-${file.name}`;
+    const path = `${companyEik || "unknown"}/${Date.now()}-invoice-${index}-${file.name}`;
 
     const { error } = await supabase.storage
       .from("producer-invoices")
@@ -54,6 +47,24 @@ function ProducerEconomicContent() {
     if (error) throw new Error(error.message);
 
     return path;
+  }
+
+  async function processInvoice() {
+    if (!files.invoice1) {
+      setMessage("Моля, първо качете фактура, издадена към търговеца.");
+      return;
+    }
+
+    setProcessing(true);
+    setMessage("");
+
+    try {
+      setMessage("Фактурата е готова за обработка. Следваща стъпка: свързване с AI extractor.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Грешка при обработка на фактура.");
+    } finally {
+      setProcessing(false);
+    }
   }
 
   async function saveEconomicData(event: React.FormEvent) {
@@ -82,7 +93,6 @@ function ProducerEconomicContent() {
         sale_price_bgn_mwh: toNullableNumber(form.sale_price_bgn_mwh),
         balancing_cost_bgn_mwh: toNullableNumber(form.balancing_cost_bgn_mwh),
         green_certificate_included: form.green_certificate_included,
-        support_scheme: form.support_scheme || null,
         notes: form.notes || null,
         invoice_1_url: invoice1Url,
         invoice_2_url: invoice2Url,
@@ -96,9 +106,7 @@ function ProducerEconomicContent() {
 
       setMessage("Икономическите данни са записани успешно.");
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Грешка при качване на файл."
-      );
+      setMessage(error instanceof Error ? error.message : "Грешка при качване на файл.");
     } finally {
       setSaving(false);
     }
@@ -111,7 +119,7 @@ function ProducerEconomicContent() {
           <div style={badgeStyle}>Producer economic onboarding</div>
           <h1 style={{ margin: "10px 0" }}>Икономически данни на производител</h1>
           <p style={mutedWhiteStyle}>
-            Тук събираме фактури, продажна цена, текущ купувач и договорни условия.
+            Тук събираме фактура към търговеца, текущ договор, край на договора и основни икономически параметри.
           </p>
         </section>
 
@@ -126,53 +134,86 @@ function ProducerEconomicContent() {
 
         <form onSubmit={saveEconomicData}>
           <section style={cardStyle}>
-            <h2>Фактури</h2>
+            <h2>Фактури към търговеца</h2>
             <p style={mutedStyle}>
-              Фактура 1 е задължителна. Фактура 2 и 3 са по желание.
+              Моля, качете фактура, която вашето дружество е издало към настоящия търговец/купувач на електроенергия.
+              От нея ще извлечем търговеца, произведената енергия, цена, период и стойност.
             </p>
 
             <div style={gridStyle}>
               <FileField
                 label="Фактура 1 — задължителна"
                 required
-                onChange={(file) =>
-                  setFiles((current) => ({ ...current, invoice1: file }))
-                }
+                onChange={(file) => setFiles((current) => ({ ...current, invoice1: file }))}
               />
               <FileField
                 label="Фактура 2 — по желание"
-                onChange={(file) =>
-                  setFiles((current) => ({ ...current, invoice2: file }))
-                }
+                onChange={(file) => setFiles((current) => ({ ...current, invoice2: file }))}
               />
               <FileField
                 label="Фактура 3 — по желание"
-                onChange={(file) =>
-                  setFiles((current) => ({ ...current, invoice3: file }))
-                }
+                onChange={(file) => setFiles((current) => ({ ...current, invoice3: file }))}
               />
             </div>
+
+            <button
+              type="button"
+              onClick={processInvoice}
+              disabled={!files.invoice1 || processing}
+              style={secondaryButtonStyle}
+            >
+              {processing ? "Обработка..." : "Обработи фактура"}
+            </button>
           </section>
 
           <section style={cardStyle}>
             <h2>Икономически параметри</h2>
 
             <div style={gridStyle}>
-              <Field label="Настоящ купувач / търговец" value={form.current_buyer} onChange={(v) => updateField("current_buyer", v)} />
-              <Field label="Тип договор" value={form.contract_type} onChange={(v) => updateField("contract_type", v)} />
-              <Field label="Край на договор" type="date" value={form.contract_end_date} onChange={(v) => updateField("contract_end_date", v)} />
-              <Field label="Продажна цена BGN/MWh" type="number" value={form.sale_price_bgn_mwh} onChange={(v) => updateField("sale_price_bgn_mwh", v)} />
-              <Field label="Разход за балансиране BGN/MWh" type="number" value={form.balancing_cost_bgn_mwh} onChange={(v) => updateField("balancing_cost_bgn_mwh", v)} />
-              <Field label="Схема за подпомагане" value={form.support_scheme} onChange={(v) => updateField("support_scheme", v)} />
+              <Field
+                label="Настоящ купувач / търговец"
+                value={form.current_buyer}
+                onChange={(v) => updateField("current_buyer", v)}
+              />
+
+              <SelectField
+                label="Вид договор"
+                value={form.contract_type}
+                onChange={(v) => updateField("contract_type", v)}
+                options={[
+                  { value: "", label: "Изберете" },
+                  { value: "open", label: "Отворен" },
+                  { value: "closed", label: "Затворен" },
+                ]}
+              />
+
+              <Field
+                label="Край на договор"
+                type="date"
+                value={form.contract_end_date}
+                onChange={(v) => updateField("contract_end_date", v)}
+              />
+
+              <Field
+                label="Продажна цена BGN/MWh"
+                type="number"
+                value={form.sale_price_bgn_mwh}
+                onChange={(v) => updateField("sale_price_bgn_mwh", v)}
+              />
+
+              <Field
+                label="Разход за балансиране BGN/MWh"
+                type="number"
+                value={form.balancing_cost_bgn_mwh}
+                onChange={(v) => updateField("balancing_cost_bgn_mwh", v)}
+              />
             </div>
 
             <label style={checkboxStyle}>
               <input
                 type="checkbox"
                 checked={form.green_certificate_included}
-                onChange={(event) =>
-                  updateField("green_certificate_included", event.target.checked)
-                }
+                onChange={(event) => updateField("green_certificate_included", event.target.checked)}
               />
               <span>Включени гаранции за произход / зелени сертификати</span>
             </label>
@@ -235,6 +276,26 @@ function Field({ label, value, onChange, type = "text" }: {
   );
 }
 
+function SelectField({ label, value, onChange, options }: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div style={fieldStyle}>
+      <label style={fieldLabelStyle}>{label}</label>
+      <select value={value} onChange={(e) => onChange(e.target.value)} style={inputStyle}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function FileField({ label, required = false, onChange }: {
   label: string;
   required?: boolean;
@@ -243,7 +304,13 @@ function FileField({ label, required = false, onChange }: {
   return (
     <div style={fieldStyle}>
       <label style={fieldLabelStyle}>{label}</label>
-      <input type="file" required={required} accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => onChange(e.target.files?.[0] || null)} style={inputStyle} />
+      <input
+        type="file"
+        required={required}
+        accept=".pdf,.jpg,.jpeg,.png"
+        onChange={(e) => onChange(e.target.files?.[0] || null)}
+        style={inputStyle}
+      />
     </div>
   );
 }
@@ -253,7 +320,7 @@ const containerStyle: React.CSSProperties = { maxWidth: 1150, margin: "0 auto" }
 const heroStyle: React.CSSProperties = { background: "linear-gradient(135deg,#1e3a8a,#0f766e)", color: "white", padding: 34, borderRadius: 28 };
 const badgeStyle: React.CSSProperties = { display: "inline-flex", padding: "8px 12px", borderRadius: 999, background: "rgba(255,255,255,0.18)", fontWeight: 800 };
 const mutedWhiteStyle: React.CSSProperties = { color: "rgba(255,255,255,0.8)" };
-const mutedStyle: React.CSSProperties = { color: "#64748b" };
+const mutedStyle: React.CSSProperties = { color: "#64748b", lineHeight: 1.6 };
 const cardStyle: React.CSSProperties = { background: "white", padding: 28, borderRadius: 24, marginTop: 26, boxShadow: "0 14px 40px rgba(15,23,42,0.08)" };
 const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16, marginTop: 18 };
 const infoStyle: React.CSSProperties = { padding: 16, borderRadius: 16, background: "#f8fafc", border: "1px solid #e2e8f0" };
@@ -265,3 +332,4 @@ const textareaStyle: React.CSSProperties = { width: "100%", minHeight: 100, padd
 const checkboxStyle: React.CSSProperties = { display: "flex", gap: 10, alignItems: "center", padding: 14, borderRadius: 14, background: "#f8fafc", border: "1px solid #e2e8f0", marginTop: 18 };
 const messageStyle: React.CSSProperties = { marginTop: 18, padding: 14, borderRadius: 14, background: "#eff6ff", color: "#1e40af", fontWeight: 700 };
 const primaryButtonStyle: React.CSSProperties = { marginTop: 22, padding: "14px 22px", borderRadius: 16, border: 0, background: "#059669", color: "white", fontWeight: 800, cursor: "pointer" };
+const secondaryButtonStyle: React.CSSProperties = { marginTop: 18, padding: "13px 18px", borderRadius: 14, border: "1px solid #2563eb", background: "white", color: "#2563eb", fontWeight: 800, cursor: "pointer" };
