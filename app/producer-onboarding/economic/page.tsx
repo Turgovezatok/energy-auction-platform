@@ -14,6 +14,13 @@ function ProducerEconomicContent() {
   const [saving, setSaving] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState("");
+  const resultBoxStyle: React.CSSProperties = {
+  marginTop: 20,
+  padding: 20,
+  borderRadius: 16,
+  background: "#f8fafc",
+  border: "1px solid #cbd5e1",
+};
 
   const [form, setForm] = useState({
   current_buyer: "",
@@ -203,6 +210,31 @@ function ProducerEconomicContent() {
             >
               {processing ? "Обработка..." : "Обработи фактура"}
             </button>
+            <div style={resultBoxStyle}>
+  <h3>Анализ на фактурата</h3>
+
+  <div style={gridStyle}>
+    <Info
+      label="Месец по фактура"
+      value={form.invoice_period_month}
+    />
+
+    <Info
+      label="Цена по фактура EUR/MWh"
+      value={form.invoice_price_eur_mwh}
+    />
+
+    <Info
+      label="Solar Capture EUR/MWh"
+      value={form.reference_solar_price_eur_mwh}
+    />
+
+    <Info
+      label="Разлика EUR/MWh"
+      value={form.estimated_trader_adder_eur_mwh}
+    />
+  </div>
+</div>
           </section>
 
           <section style={cardStyle}>
