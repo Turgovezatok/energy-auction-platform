@@ -93,7 +93,16 @@ function ProducerEconomicContent() {
 
     const invoicePrice = toNullableNumber(form.sale_price_bgn_mwh);
     const solarCapturePrice = data?.solar_capture_price ?? null;
-
+    await supabase
+  .from("producer_invoice_extractions")
+  .insert({
+    company_eik: companyEik,
+    plant_name: plantName,
+    invoice_file_path: invoicePath,
+    invoice_period_month: invoiceMonth,
+    invoice_period_year: invoiceYear,
+    reference_solar_price_eur_mwh: solarCapturePrice,
+  });
     const estimatedAdder =
       invoicePrice !== null && solarCapturePrice !== null
         ? invoicePrice - Number(solarCapturePrice)
