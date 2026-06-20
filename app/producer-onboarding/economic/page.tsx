@@ -16,14 +16,19 @@ function ProducerEconomicContent() {
   const [message, setMessage] = useState("");
 
   const [form, setForm] = useState({
-    current_buyer: "",
-    contract_type: "",
-    contract_end_date: "",
-    sale_price_bgn_mwh: "",
-    balancing_cost_bgn_mwh: "",
-    green_certificate_included: false,
-    notes: "",
-  });
+  current_buyer: "",
+  contract_type: "",
+  contract_end_date: "",
+  sale_price_bgn_mwh: "",
+  balancing_cost_bgn_mwh: "",
+  green_certificate_included: false,
+  notes: "",
+
+  invoice_period_month: "",
+  invoice_price_eur_mwh: "",
+  reference_solar_price_eur_mwh: "",
+  estimated_trader_adder_eur_mwh: "",
+});
 
   const [files, setFiles] = useState({
     invoice1: null as File | null,
