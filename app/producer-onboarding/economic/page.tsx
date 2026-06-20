@@ -55,27 +55,39 @@ function ProducerEconomicContent() {
 }
 
   async function processInvoice() {
-    if (!files.invoice1) {
-      setMessage("Моля, първо качете фактура, издадена към търговеца.");
-      return;
-    }
-
-    setProcessing(true);
-    setMessage("");
-
-    try {
-      const invoicePath = await uploadInvoice(files.invoice1, 1);
-      setMessage(`Фактурата е качена успешно. Път: ${invoicePath}`);
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Грешка при качване на фактура."
-      );
-    } finally {
-      setProcessing(false);
-    }
+  if (!files.invoice1) {
+    setMessage("Моля, първо качете поне Фактура 1, издадена към търговеца.");
+    return;
   }
+
+  setProcessing(true);
+  setMessage("");
+
+  try {
+    const uploadedPaths: string[] = [];
+
+    const invoice1Path = await uploadInvoice(files.invoice1, 1);
+    if (invoice1Path) uploadedPaths.push(invoice1Path);
+
+    const invoice2Path = await uploadInvoice(files.invoice2, 2);
+    if (invoice2Path) uploadedPaths.push(invoice2Path);
+
+    const invoice3Path = await uploadInvoice(files.invoice3, 3);
+    if (invoice3Path) uploadedPaths.push(invoice3Path);
+
+    setMessage(
+      `Качени фактури: ${uploadedPaths.length}. Пътища: ${uploadedPaths.join(", ")}`
+    );
+  } catch (error) {
+    setMessage(
+      error instanceof Error
+        ? error.message
+        : "Грешка при качване на фактурите."
+    );
+  } finally {
+    setProcessing(false);
+  }
+}
 
   async function saveEconomicData(event: React.FormEvent) {
     event.preventDefault();
