@@ -68,7 +68,7 @@ function ProducerEconomicContent() {
 
   async function processInvoice() {
   if (!files.invoice1) {
-    setMessage("Моля, първо качете поне Фактура 1, издадена към търговеца.");
+    setMessage("Моля, първо качете фактура, издадена към търговеца.");
     return;
   }
 
@@ -76,25 +76,45 @@ function ProducerEconomicContent() {
   setMessage("");
 
   try {
-    const uploadedPaths: string[] = [];
+    const invoicePath = await uploadInvoice(files.invoice1, 1);
 
-    const invoice1Path = await uploadInvoice(files.invoice1, 1);
-    if (invoice1Path) uploadedPaths.push(invoice1Path);
+    const match = files.invoice1.name.match(/(\d{2})\.(\d{4})/);
+    const invoiceMonth = match ? Number(match[1]) : new Date().getMonth() + 1;
+    const invoiceYear = match ? Number(match[2]) : new Date().getFullYear();
 
-    const invoice2Path = await uploadInvoice(files.invoice2, 2);
-    if (invoice2Path) uploadedPaths.push(invoice2Path);
+    const { data, error } = await supabase
+      .from("technology_capture_timeblock_v")
+      .select("solar_capture_price, solar_capture_rate_pct, avg_market_price")
+      .eq("year", invoiceYear)
+      .eq("month", invoiceMonth)
+      .maybeSingle();
 
-    const invoice3Path = await uploadInvoice(files.invoice3, 3);
-    if (invoice3Path) uploadedPaths.push(invoice3Path);
+    if (error) throw new Error(error.message);
 
-    setMessage(
-      `Качени фактури: ${uploadedPaths.length}. Пътища: ${uploadedPaths.join(", ")}`
-    );
+    const invoicePrice = toNullableNumber(form.sale_price_bgn_mwh);
+    const solarCapturePrice = data?.solar_capture_price ?? null;
+
+    const estimatedAdder =
+      invoicePrice !== null && solarCapturePrice !== null
+        ? invoicePrice - Number(solarCapturePrice)
+        : null;
+
+    setForm((current) => ({
+      ...current,
+      invoice_period_month: `${String(invoiceMonth).padStart(2, "0")}/${invoiceYear}`,
+      invoice_price_eur_mwh: invoicePrice !== null ? invoicePrice.toFixed(2) : "",
+      reference_solar_price_eur_mwh:
+        solarCapturePrice !== null ? Number(solarCapturePrice).toFixed(2) : "",
+      estimated_trader_adder_eur_mwh:
+        estimatedAdder !== null ? estimatedAdder.toFixed(2) : "",
+    }));
+
+    setMessage(`Фактурата е качена успешно. Път: ${invoicePath}`);
   } catch (error) {
     setMessage(
       error instanceof Error
         ? error.message
-        : "Грешка при качване на фактурите."
+        : "Грешка при обработка на фактура."
     );
   } finally {
     setProcessing(false);
