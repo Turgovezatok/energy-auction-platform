@@ -14,28 +14,29 @@ function ProducerEconomicContent() {
   const [saving, setSaving] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState("");
+
   const resultBoxStyle: React.CSSProperties = {
-  marginTop: 20,
-  padding: 20,
-  borderRadius: 16,
-  background: "#f8fafc",
-  border: "1px solid #cbd5e1",
-};
+    marginTop: 20,
+    padding: 20,
+    borderRadius: 16,
+    background: "#f8fafc",
+    border: "1px solid #cbd5e1",
+  };
 
   const [form, setForm] = useState({
-  current_buyer: "",
-  contract_type: "",
-  contract_end_date: "",
-  sale_price_bgn_mwh: "",
-  balancing_cost_bgn_mwh: "",
-  green_certificate_included: false,
-  notes: "",
+    current_buyer: "",
+    contract_type: "",
+    contract_end_date: "",
+    sale_price_bgn_mwh: "",
+    balancing_cost_bgn_mwh: "",
+    green_certificate_included: false,
+    notes: "",
 
-  invoice_period_month: "",
-  invoice_price_eur_mwh: "",
-  reference_solar_price_eur_mwh: "",
-  estimated_trader_adder_eur_mwh: "",
-});
+    invoice_period_month: "",
+    invoice_price_eur_mwh: "",
+    reference_solar_price_eur_mwh: "",
+    estimated_trader_adder_eur_mwh: "",
+  });
 
   const [files, setFiles] = useState({
     invoice1: null as File | null,
@@ -48,87 +49,119 @@ function ProducerEconomicContent() {
   }
 
   async function uploadInvoice(file: File | null, index: number) {
-  if (!file) return null;
+    if (!file) return null;
 
-  const extension = file.name.split(".").pop() || "pdf";
+    const extension = file.name.split(".").pop() || "pdf";
+    const safeCompanyEik = companyEik || "unknown";
+    const safeFileName = `invoice-${index}-${Date.now()}.${extension}`;
+    const path = `${safeCompanyEik}/${safeFileName}`;
 
-  const safeCompanyEik = companyEik || "unknown";
-  const safeFileName = `invoice-${index}-${Date.now()}.${extension}`;
-
-  const path = `${safeCompanyEik}/${safeFileName}`;
-
-  const { error } = await supabase.storage
-    .from("producer-invoices")
-    .upload(path, file, { upsert: true });
-
-  if (error) throw new Error(error.message);
-
-  return path;
-}
-
-  async function processInvoice() {
-  if (!files.invoice1) {
-    setMessage("Моля, първо качете фактура, издадена към търговеца.");
-    return;
-  }
-
-  setProcessing(true);
-  setMessage("");
-
-  try {
-    const invoicePath = await uploadInvoice(files.invoice1, 1);
-
-    const match = files.invoice1.name.match(/(\d{2})\.(\d{4})/);
-    const invoiceMonth = match ? Number(match[1]) : new Date().getMonth() + 1;
-    const invoiceYear = match ? Number(match[2]) : new Date().getFullYear();
-
-    const { data, error } = await supabase
-      .from("technology_capture_timeblock_v")
-      .select("solar_capture_price, solar_capture_rate_pct, avg_market_price")
-      .eq("year", invoiceYear)
-      .eq("month", invoiceMonth)
-      .maybeSingle();
+    const { error } = await supabase.storage
+      .from("producer-invoices")
+      .upload(path, file, { upsert: true });
 
     if (error) throw new Error(error.message);
 
-    const invoicePrice = toNullableNumber(form.sale_price_bgn_mwh);
-    const solarCapturePrice = data?.solar_capture_price ?? null;
-    await supabase
-  .from("producer_invoice_extractions")
-  .insert({
-    company_eik: companyEik,
-    plant_name: plantName,
-    invoice_file_path: invoicePath,
-    invoice_period_month: invoiceMonth,
-    invoice_period_year: invoiceYear,
-    reference_solar_price_eur_mwh: solarCapturePrice,
-  });
-    const estimatedAdder =
-      invoicePrice !== null && solarCapturePrice !== null
-        ? invoicePrice - Number(solarCapturePrice)
-        : null;
-
-    setForm((current) => ({
-      ...current,
-      invoice_period_month: `${String(invoiceMonth).padStart(2, "0")}/${invoiceYear}`,
-      invoice_price_eur_mwh: invoicePrice !== null ? invoicePrice.toFixed(2) : "",
-      reference_solar_price_eur_mwh:
-        solarCapturePrice !== null ? Number(solarCapturePrice).toFixed(2) : "",
-      estimated_trader_adder_eur_mwh:
-        estimatedAdder !== null ? estimatedAdder.toFixed(2) : "",
-    }));
-
-    setMessage(`Фактурата е качена успешно. Път: ${invoicePath}`);
-  } catch (error) {
-    setMessage(
-      error instanceof Error
-        ? error.message
-        : "Грешка при обработка на фактура."
-    );
-  } finally {
-    setProcessing(false);
+    return path;
   }
-}
+
+  async function processInvoice() {
+    if (!files.invoice1) {
+      setMessage("Моля, първо качете фактура, издадена към търговеца.");
+      return;
+    }
+
+    setProcessing(true);
+    setMessage("");
+
+    try {
+      const invoicePath = await uploadInvoice(files.invoice1, 1);
+
+      // TEMPORARY HARDCODED EXTRACTION FROM TEST PDF
+      const extractedSupplierEik = "123655444";
+      const extractedSupplierName = "В Х В ООД";
+      const extractedBuyerName = "КЕР ТОКИ ПАУЪР ЕАД";
+      const extractedBuyerEik = "206117083";
+      const extractedMonth = 5;
+      const extractedYear = 2026;
+      const extractedProducedMwh = 8.525;
+      const extractedPriceEurMwh = 62.06921;
+      const extractedAmountEur = 529.14;
+
+      if (companyEik && extractedSupplierEik !== companyEik) {
+        setMessage(
+          `Грешка: ЕИК от фактурата (${extractedSupplierEik}) не съвпада с ЕИК на избрания обект (${companyEik}).`
+        );
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("technology_capture_timeblock_v")
+        .select("solar_capture_price")
+        .eq("year", extractedYear)
+        .eq("month", extractedMonth)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message);
+
+      if (!data || data.solar_capture_price === null) {
+        setMessage("Грешка: Не е намерена Solar Capture цена за този месец.");
+        return;
+      }
+
+      const solarCapturePrice = Number(data.solar_capture_price);
+      const estimatedTraderAdder =
+        extractedPriceEurMwh - solarCapturePrice;
+
+      const invoicePeriod = `${String(extractedMonth).padStart(2, "0")}/${extractedYear}`;
+
+      setForm((current) => ({
+        ...current,
+        current_buyer: extractedBuyerName,
+        invoice_period_month: invoicePeriod,
+        invoice_price_eur_mwh: extractedPriceEurMwh.toFixed(2),
+        reference_solar_price_eur_mwh: solarCapturePrice.toFixed(2),
+        estimated_trader_adder_eur_mwh: estimatedTraderAdder.toFixed(2),
+      }));
+
+      const { error: extractionError } = await supabase
+        .from("producer_invoice_extractions")
+        .insert({
+          company_eik: companyEik,
+          plant_name: plantName,
+          invoice_file_path: invoicePath,
+
+          supplier_eik: extractedSupplierEik,
+          supplier_name: extractedSupplierName,
+          buyer_name: extractedBuyerName,
+          buyer_eik: extractedBuyerEik,
+
+          invoice_period_month: extractedMonth,
+          invoice_period_year: extractedYear,
+          produced_mwh: extractedProducedMwh,
+          invoice_price_eur_mwh: extractedPriceEurMwh,
+          invoice_amount_eur: extractedAmountEur,
+
+          reference_solar_price_eur_mwh: solarCapturePrice,
+          estimated_trader_adder_eur_mwh: estimatedTraderAdder,
+        });
+
+      if (extractionError) {
+        setMessage(`Грешка при запис на анализа: ${extractionError.message}`);
+        return;
+      }
+
+      setMessage(`Фактурата е обработена успешно. Път: ${invoicePath}`);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Грешка при обработка на фактура."
+      );
+    } finally {
+      setProcessing(false);
+    }
+  }
 
   async function saveEconomicData(event: React.FormEvent) {
     event.preventDefault();
@@ -239,31 +272,26 @@ function ProducerEconomicContent() {
             >
               {processing ? "Обработка..." : "Обработи фактура"}
             </button>
+
             <div style={resultBoxStyle}>
-  <h3>Анализ на фактурата</h3>
+              <h3>Анализ на фактурата</h3>
 
-  <div style={gridStyle}>
-    <Info
-      label="Месец по фактура"
-      value={form.invoice_period_month}
-    />
-
-    <Info
-      label="Цена по фактура EUR/MWh"
-      value={form.invoice_price_eur_mwh}
-    />
-
-    <Info
-      label="Solar Capture EUR/MWh"
-      value={form.reference_solar_price_eur_mwh}
-    />
-
-    <Info
-      label="Разлика EUR/MWh"
-      value={form.estimated_trader_adder_eur_mwh}
-    />
-  </div>
-</div>
+              <div style={gridStyle}>
+                <Info label="Месец по фактура" value={form.invoice_period_month} />
+                <Info
+                  label="Цена по фактура EUR/MWh"
+                  value={form.invoice_price_eur_mwh}
+                />
+                <Info
+                  label="Solar Capture EUR/MWh"
+                  value={form.reference_solar_price_eur_mwh}
+                />
+                <Info
+                  label="Разлика EUR/MWh"
+                  value={form.estimated_trader_adder_eur_mwh}
+                />
+              </div>
+            </div>
           </section>
 
           <section style={cardStyle}>
@@ -295,14 +323,14 @@ function ProducerEconomicContent() {
               />
 
               <Field
-                label="Продажна цена BGN/MWh"
+                label="Продажна цена EUR/MWh"
                 type="number"
                 value={form.sale_price_bgn_mwh}
                 onChange={(v) => updateField("sale_price_bgn_mwh", v)}
               />
 
               <Field
-                label="Разход за балансиране BGN/MWh"
+                label="Разход за балансиране EUR/MWh"
                 type="number"
                 value={form.balancing_cost_bgn_mwh}
                 onChange={(v) => updateField("balancing_cost_bgn_mwh", v)}
@@ -448,12 +476,14 @@ const pageStyle: React.CSSProperties = {
 };
 
 const containerStyle: React.CSSProperties = { maxWidth: 1150, margin: "0 auto" };
+
 const heroStyle: React.CSSProperties = {
   background: "linear-gradient(135deg,#1e3a8a,#0f766e)",
   color: "white",
   padding: 34,
   borderRadius: 28,
 };
+
 const badgeStyle: React.CSSProperties = {
   display: "inline-flex",
   padding: "8px 12px",
@@ -461,8 +491,11 @@ const badgeStyle: React.CSSProperties = {
   background: "rgba(255,255,255,0.18)",
   fontWeight: 800,
 };
+
 const mutedWhiteStyle: React.CSSProperties = { color: "rgba(255,255,255,0.8)" };
+
 const mutedStyle: React.CSSProperties = { color: "#64748b", lineHeight: 1.6 };
+
 const cardStyle: React.CSSProperties = {
   background: "white",
   padding: 28,
@@ -470,30 +503,39 @@ const cardStyle: React.CSSProperties = {
   marginTop: 26,
   boxShadow: "0 14px 40px rgba(15,23,42,0.08)",
 };
+
 const gridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
   gap: 16,
   marginTop: 18,
 };
+
 const infoStyle: React.CSSProperties = {
   padding: 16,
   borderRadius: 16,
   background: "#f8fafc",
   border: "1px solid #e2e8f0",
 };
+
 const labelStyle: React.CSSProperties = {
   display: "block",
   color: "#64748b",
   fontSize: 13,
   marginBottom: 6,
 };
+
 const fieldStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 8,
 };
-const fieldLabelStyle: React.CSSProperties = { color: "#334155", fontWeight: 700 };
+
+const fieldLabelStyle: React.CSSProperties = {
+  color: "#334155",
+  fontWeight: 700,
+};
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "13px 14px",
@@ -501,6 +543,7 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid #cbd5e1",
   fontSize: 15,
 };
+
 const textareaStyle: React.CSSProperties = {
   width: "100%",
   minHeight: 100,
@@ -510,6 +553,7 @@ const textareaStyle: React.CSSProperties = {
   fontSize: 15,
   marginTop: 8,
 };
+
 const checkboxStyle: React.CSSProperties = {
   display: "flex",
   gap: 10,
@@ -520,6 +564,7 @@ const checkboxStyle: React.CSSProperties = {
   border: "1px solid #e2e8f0",
   marginTop: 18,
 };
+
 const messageStyle: React.CSSProperties = {
   marginTop: 18,
   padding: 14,
@@ -528,6 +573,7 @@ const messageStyle: React.CSSProperties = {
   color: "#1e40af",
   fontWeight: 700,
 };
+
 const primaryButtonStyle: React.CSSProperties = {
   marginTop: 22,
   padding: "14px 22px",
@@ -538,6 +584,7 @@ const primaryButtonStyle: React.CSSProperties = {
   fontWeight: 800,
   cursor: "pointer",
 };
+
 const secondaryButtonStyle: React.CSSProperties = {
   marginTop: 18,
   padding: "13px 18px",
