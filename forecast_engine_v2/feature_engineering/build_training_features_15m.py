@@ -55,12 +55,19 @@ def add_price_features(df: pd.DataFrame) -> pd.DataFrame:
         .mean()
     )
 
-    df["price_avg_4h"] = (
+        df["price_avg_4h"] = (
         shifted_price
         .rolling(window=16, min_periods=1)
         .mean()
     )
 
+    df["price_avg_24h"] = (
+        shifted_price
+        .rolling(window=96, min_periods=1)
+        .mean()
+    )
+
+    return df
         df["price_avg_24h"] = (
         shifted_price
         .rolling(window=96, min_periods=1)
