@@ -23,10 +23,7 @@ def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
     df["day"] = ts.dt.day
     df["hour"] = ts.dt.hour
 
-    # Quarter-hour inside the hour: 0, 1, 2, 3
     df["quarter_hour"] = ts.dt.minute // 15
-
-    # Quarter-hour index inside the day: 0-95
     df["quarter_hour_of_day"] = df["hour"] * 4 + df["quarter_hour"]
 
     df["weekday"] = ts.dt.weekday
@@ -41,12 +38,10 @@ def add_price_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df = df.sort_values("timestamp_utc").reset_index(drop=True)
 
-    # Lag features
     df["price_lag_15m"] = df["dayahead_price"].shift(1)
     df["price_lag_1h"] = df["dayahead_price"].shift(4)
     df["price_lag_24h"] = df["dayahead_price"].shift(96)
 
-    # Rolling features using only past values
     shifted_price = df["dayahead_price"].shift(1)
 
     df["price_avg_1h"] = (
@@ -55,20 +50,13 @@ def add_price_features(df: pd.DataFrame) -> pd.DataFrame:
         .mean()
     )
 
-        df["price_avg_4h"] = (
+    df["price_avg_4h"] = (
         shifted_price
         .rolling(window=16, min_periods=1)
         .mean()
     )
 
     df["price_avg_24h"] = (
-        shifted_price
-        .rolling(window=96, min_periods=1)
-        .mean()
-    )
-
-    return df
-        df["price_avg_24h"] = (
         shifted_price
         .rolling(window=96, min_periods=1)
         .mean()
