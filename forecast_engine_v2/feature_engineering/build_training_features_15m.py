@@ -1,6 +1,5 @@
-
 """
-Build basic calendar features for Forecast Engine v2.
+Build training features for Forecast Engine v2.
 """
 
 import sys
@@ -33,8 +32,26 @@ def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
     df["weekday"] = ts.dt.weekday
     df["day_of_year"] = ts.dt.dayofyear
     df["week_of_year"] = ts.dt.isocalendar().week.astype(int)
-
     df["is_weekend"] = df["weekday"].isin([5, 6]).astype(int)
+
+    return df
+
+
+def add_price_features(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    df = df.sort_values("timestamp_utc").reset_index(drop=True)
+
+    # Lag features
+    df["price_lag_15m"] = df["dayahead_price"].shift(1)
+    df["price_lag_1h"] = df["dayahead_price"].shift(4)
+
+    # Rolling feature using only past values
+    df["price_avg_1h"] = (
+        df["dayahead_price"]
+        .shift(1)
+        .rolling(window=4, min_periods=1)
+        .mean()
+    )
 
     return df
 
@@ -42,11 +59,15 @@ def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
 if __name__ == "__main__":
     df = load_market_15m()
     df = add_calendar_features(df)
+    df = add_price_features(df)
 
-    print(df.head())
+    print(df.head(10))
 
     print("\nColumns:")
     print(df.columns.tolist())
 
     print("\nRows:")
     print(len(df))
+
+    print("\nMissing values in new price features:")
+    print(df[["price_lag_15m", "price_lag_1h", "price_avg_1h"]].isna().sum())
