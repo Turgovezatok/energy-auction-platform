@@ -44,6 +44,7 @@ def add_price_features(df: pd.DataFrame) -> pd.DataFrame:
     # Lag features
     df["price_lag_15m"] = df["dayahead_price"].shift(1)
     df["price_lag_1h"] = df["dayahead_price"].shift(4)
+    df["price_lag_24h"] = df["dayahead_price"].shift(96)
 
     # Rolling feature using only past values
     df["price_avg_1h"] = (
