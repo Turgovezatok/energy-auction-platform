@@ -46,11 +46,18 @@ def add_price_features(df: pd.DataFrame) -> pd.DataFrame:
     df["price_lag_1h"] = df["dayahead_price"].shift(4)
     df["price_lag_24h"] = df["dayahead_price"].shift(96)
 
-    # Rolling feature using only past values
+    # Rolling features using only past values
+    shifted_price = df["dayahead_price"].shift(1)
+
     df["price_avg_1h"] = (
-        df["dayahead_price"]
-        .shift(1)
+        shifted_price
         .rolling(window=4, min_periods=1)
+        .mean()
+    )
+
+    df["price_avg_4h"] = (
+        shifted_price
+        .rolling(window=16, min_periods=1)
         .mean()
     )
 
@@ -71,4 +78,10 @@ if __name__ == "__main__":
     print(len(df))
 
     print("\nMissing values in new price features:")
-    print(df[["price_lag_15m", "price_lag_1h", "price_lag_24h", "price_avg_1h"]].isna().sum())
+    print(df[[
+        "price_lag_15m",
+        "price_lag_1h",
+        "price_lag_24h",
+        "price_avg_1h",
+        "price_avg_4h",
+    ]].isna().sum())
