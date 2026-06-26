@@ -1,4 +1,4 @@
-cat > forecast_engine_v2/feature_engineering/build_training_features_15m.py <<'EOF'
+
 """
 Build basic calendar features for Forecast Engine v2.
 """
@@ -50,4 +50,3 @@ if __name__ == "__main__":
 
     print("\nRows:")
     print(len(df))
-EOF
