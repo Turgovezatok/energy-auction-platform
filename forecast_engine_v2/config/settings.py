@@ -7,11 +7,19 @@ Use environment variables for Supabase credentials.
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 
 # Project paths
 BASE_DIR = Path(__file__).resolve().parents[1]
 MODELS_DIR = BASE_DIR / "models"
 LOGS_DIR = BASE_DIR / "logs"
+
+# Repository root (energy-auction-platform)
+REPO_DIR = BASE_DIR.parent
+
+# Load environment variables from .env
+load_dotenv(REPO_DIR / ".env")
 
 
 # Supabase
