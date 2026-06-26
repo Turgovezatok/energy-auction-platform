@@ -23,7 +23,10 @@ def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
     df["day"] = ts.dt.day
     df["hour"] = ts.dt.hour
 
+    # Quarter-hour inside the hour
     df["quarter_hour"] = ts.dt.minute // 15
+
+    # Quarter-hour index inside the day (0-95)
     df["quarter_hour_of_day"] = df["hour"] * 4 + df["quarter_hour"]
 
     df["weekday"] = ts.dt.weekday
@@ -38,12 +41,14 @@ def add_price_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df = df.sort_values("timestamp_utc").reset_index(drop=True)
 
+    # Lag features
     df["price_lag_15m"] = df["dayahead_price"].shift(1)
     df["price_lag_1h"] = df["dayahead_price"].shift(4)
     df["price_lag_24h"] = df["dayahead_price"].shift(96)
 
     shifted_price = df["dayahead_price"].shift(1)
 
+    # Rolling averages
     df["price_avg_1h"] = (
         shifted_price
         .rolling(window=4, min_periods=1)
@@ -65,12 +70,7 @@ def add_price_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-if __name__ == "__main__":
-   df = load_market_15m()
-   df = add_calendar_features(df)
-   df = add_price_features(df)
-   df = add_market_period_features(df)
-   def add_market_period_features(df: pd.DataFrame) -> pd.DataFrame:
+def add_market_period_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
     df["is_night"] = df["hour"].between(0, 5).astype(int)
@@ -79,6 +79,14 @@ if __name__ == "__main__":
     df["is_evening_peak"] = df["hour"].between(17, 22).astype(int)
 
     return df
+
+
+if __name__ == "__main__":
+    df = load_market_15m()
+
+    df = add_calendar_features(df)
+    df = add_price_features(df)
+    df = add_market_period_features(df)
 
     print(df.head(10))
 
