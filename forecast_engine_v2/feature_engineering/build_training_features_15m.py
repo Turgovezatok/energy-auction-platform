@@ -66,9 +66,19 @@ def add_price_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    df = load_market_15m()
-    df = add_calendar_features(df)
-    df = add_price_features(df)
+   df = load_market_15m()
+   df = add_calendar_features(df)
+   df = add_price_features(df)
+   df = add_market_period_features(df)
+   def add_market_period_features(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+
+    df["is_night"] = df["hour"].between(0, 5).astype(int)
+    df["is_morning_ramp"] = df["hour"].between(6, 9).astype(int)
+    df["is_solar_hours"] = df["hour"].between(10, 16).astype(int)
+    df["is_evening_peak"] = df["hour"].between(17, 22).astype(int)
+
+    return df
 
     print(df.head(10))
 
