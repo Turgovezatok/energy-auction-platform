@@ -61,6 +61,12 @@ def add_price_features(df: pd.DataFrame) -> pd.DataFrame:
         .mean()
     )
 
+        df["price_avg_24h"] = (
+        shifted_price
+        .rolling(window=96, min_periods=1)
+        .mean()
+    )
+
     return df
 
 
@@ -84,4 +90,5 @@ if __name__ == "__main__":
         "price_lag_24h",
         "price_avg_1h",
         "price_avg_4h",
+        "price_avg_24h",
     ]].isna().sum())
