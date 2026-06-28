@@ -35,11 +35,7 @@ def get_supabase_client():
 
 
 def load_market_15m(page_size: int = 1000, max_rows: int | None = None) -> pd.DataFrame:
-    """
-    Load all available 15-minute market rows using Supabase pagination.
-    """
     supabase = get_supabase_client()
-
     all_rows = []
     start = 0
 
@@ -89,11 +85,7 @@ def load_eso_load_forecast_hourly(
     page_size: int = 1000,
     max_rows: int | None = None,
 ) -> pd.DataFrame:
-    """
-    Load ESO hourly load forecast from Supabase.
-    """
     supabase = get_supabase_client()
-
     all_rows = []
     start = 0
 
@@ -147,11 +139,7 @@ def load_generation_forecast_hourly(
     page_size: int = 1000,
     max_rows: int | None = None,
 ) -> pd.DataFrame:
-    """
-    Load ENTSO-E hourly generation forecast from Supabase.
-    """
     supabase = get_supabase_client()
-
     all_rows = []
     start = 0
 
@@ -206,24 +194,12 @@ def load_crossborder_exchange_15m(
     max_rows: int | None = None,
 ) -> pd.DataFrame:
     """
-    Load ENTSO-E cross-border exchange data and aggregate it by timestamp.
+    Load ENTSO-E cross-border exchange data and aggregate it by 15-minute timestamp.
 
-    Source table:
-    entsoe_crossborder_exchange
-
-    Output columns:
-    - timestamp_utc
-    - scheduled_import_mw
-    - scheduled_export_mw
-    - net_import_mw
-
-    Logic:
-    - Import = sum(flow_mw) where to_zone = 'BG'
-    - Export = sum(flow_mw) where from_zone = 'BG'
-    - Net import = import - export
+    PT15M rows are used as-is.
+    PT60M rows are expanded to +0, +15, +30, +45 minutes.
     """
     supabase = get_supabase_client()
-
     all_rows = []
     start = 0
 
@@ -265,11 +241,35 @@ def load_crossborder_exchange_15m(
     raw_df["timestamp_utc"] = pd.to_datetime(raw_df["timestamp_utc"], utc=True)
     raw_df["flow_mw"] = pd.to_numeric(raw_df["flow_mw"], errors="coerce")
 
-    raw_df["import_mw"] = raw_df["flow_mw"].where(raw_df["to_zone"] == "BG", 0.0)
-    raw_df["export_mw"] = raw_df["flow_mw"].where(raw_df["from_zone"] == "BG", 0.0)
+    pt15_df = raw_df[raw_df["resolution"] == "PT15M"].copy()
+    pt60_df = raw_df[raw_df["resolution"] == "PT60M"].copy()
+
+    expanded_rows = []
+
+    for minutes in [0, 15, 30, 45]:
+        expanded_part = pt60_df.copy()
+        expanded_part["timestamp_utc"] = (
+            expanded_part["timestamp_utc"] + pd.Timedelta(minutes=minutes)
+        )
+        expanded_rows.append(expanded_part)
+
+    if expanded_rows:
+        expanded_pt60_df = pd.concat(expanded_rows, ignore_index=True)
+        normalized_df = pd.concat([pt15_df, expanded_pt60_df], ignore_index=True)
+    else:
+        normalized_df = pt15_df.copy()
+
+    normalized_df["import_mw"] = normalized_df["flow_mw"].where(
+        normalized_df["to_zone"] == "BG",
+        0.0,
+    )
+    normalized_df["export_mw"] = normalized_df["flow_mw"].where(
+        normalized_df["from_zone"] == "BG",
+        0.0,
+    )
 
     df = (
-        raw_df
+        normalized_df
         .groupby("timestamp_utc", as_index=False)
         .agg(
             scheduled_import_mw=("import_mw", "sum"),
