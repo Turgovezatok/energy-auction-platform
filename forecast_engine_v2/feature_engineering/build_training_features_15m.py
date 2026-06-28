@@ -16,6 +16,7 @@ from feature_engineering.load_training_data import (
     load_eso_load_forecast_hourly,
     load_generation_forecast_hourly,
     load_market_15m,
+    load_weather_forecast_hourly,
 )
 
 
@@ -141,11 +142,6 @@ def add_crossborder_exchange_features(
 
     Cross-border data has already been normalized to 15-minute resolution
     in load_crossborder_exchange_15m().
-
-    Features:
-    - scheduled_import_mw
-    - scheduled_export_mw
-    - net_import_mw
     """
     df = df.copy()
     df = df.sort_values("timestamp_utc").reset_index(drop=True)
@@ -170,6 +166,65 @@ def add_crossborder_exchange_features(
     return merged
 
 
+def add_weather_forecast_features(
+    df: pd.DataFrame,
+    weather_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Add hourly weather forecast features to 15-minute market rows.
+
+    Hourly weather values are only valid up to 1 hour backward.
+
+    Added columns:
+    - temperature_c
+    - wind_speed_ms
+    - direct_radiation
+    - shortwave_radiation
+    - solar_radiation_total
+    - solar_radiation_ratio
+    - is_high_solar_radiation
+    """
+    df = df.copy()
+    df = df.sort_values("timestamp_utc").reset_index(drop=True)
+
+    weather_df = weather_df.copy()
+    weather_df = weather_df[[
+        "timestamp_utc",
+        "temperature_c",
+        "wind_speed_ms",
+        "direct_radiation",
+        "shortwave_radiation",
+    ]]
+    weather_df = weather_df.sort_values("timestamp_utc").reset_index(drop=True)
+
+    merged = pd.merge_asof(
+        df,
+        weather_df,
+        on="timestamp_utc",
+        direction="backward",
+        tolerance=pd.Timedelta("1h"),
+    )
+
+    merged["solar_radiation_total"] = (
+        merged["direct_radiation"] + merged["shortwave_radiation"]
+    )
+
+    merged["solar_radiation_ratio"] = (
+        merged["direct_radiation"] / merged["shortwave_radiation"]
+    )
+
+    merged.loc[
+        merged["shortwave_radiation"] == 0,
+        "solar_radiation_ratio",
+    ] = 0
+
+    merged["is_high_solar_radiation"] = (
+        merged["shortwave_radiation"] >= 500
+    ).astype(int)
+
+    return merged
+
+
 if __name__ == "__main__":
     df = load_market_15m()
 
@@ -185,6 +240,9 @@ if __name__ == "__main__":
 
     crossborder_df = load_crossborder_exchange_15m()
     df = add_crossborder_exchange_features(df, crossborder_df)
+
+    weather_df = load_weather_forecast_hourly()
+    df = add_weather_forecast_features(df, weather_df)
 
     print(df.head(10))
 
@@ -213,6 +271,13 @@ if __name__ == "__main__":
         "scheduled_import_mw",
         "scheduled_export_mw",
         "net_import_mw",
+        "temperature_c",
+        "wind_speed_ms",
+        "direct_radiation",
+        "shortwave_radiation",
+        "solar_radiation_total",
+        "solar_radiation_ratio",
+        "is_high_solar_radiation",
     ]].isna().sum())
 
     print("\nFundamental feature coverage inside 15m features:")
@@ -224,6 +289,13 @@ if __name__ == "__main__":
         "scheduled_import_mw",
         "scheduled_export_mw",
         "net_import_mw",
+        "temperature_c",
+        "wind_speed_ms",
+        "direct_radiation",
+        "shortwave_radiation",
+        "solar_radiation_total",
+        "solar_radiation_ratio",
+        "is_high_solar_radiation",
     ]:
         print(
             col,
@@ -244,4 +316,11 @@ if __name__ == "__main__":
         "scheduled_import_mw",
         "scheduled_export_mw",
         "net_import_mw",
+        "temperature_c",
+        "wind_speed_ms",
+        "direct_radiation",
+        "shortwave_radiation",
+        "solar_radiation_total",
+        "solar_radiation_ratio",
+        "is_high_solar_radiation",
     ]].dropna().head(30))
