@@ -1,9 +1,10 @@
 """
 Load and validate historical 15-minute market data for Forecast Engine v2.
 
-This module is intentionally simple in v1:
+This module:
 - connects to Supabase
 - loads all rows from energy_market_data_15m using pagination
+- loads ESO hourly load forecast using pagination
 - checks date range, row count, and missing 15-minute intervals
 """
 
@@ -34,9 +35,6 @@ def get_supabase_client():
 def load_market_15m(page_size: int = 1000, max_rows: int | None = None) -> pd.DataFrame:
     """
     Load all available 15-minute market rows using Supabase pagination.
-
-    Supabase often returns only 1,000 rows per request, so we fetch data
-    in batches using .range(start, end).
     """
     supabase = get_supabase_client()
 
@@ -61,7 +59,7 @@ def load_market_15m(page_size: int = 1000, max_rows: int | None = None) -> pd.Da
             break
 
         all_rows.extend(batch)
-        print(f"Loaded rows: {len(all_rows)}")
+        print(f"Loaded market rows: {len(all_rows)}")
 
         if max_rows is not None and len(all_rows) >= max_rows:
             all_rows = all_rows[:max_rows]
@@ -79,6 +77,72 @@ def load_market_15m(page_size: int = 1000, max_rows: int | None = None) -> pd.Da
 
     df["timestamp_utc"] = pd.to_datetime(df["timestamp_utc"], utc=True)
     df["dayahead_price"] = pd.to_numeric(df["dayahead_price"], errors="coerce")
+    df = df.drop_duplicates(subset=["timestamp_utc"])
+    df = df.sort_values("timestamp_utc").reset_index(drop=True)
+
+    return df
+
+
+def load_eso_load_forecast_hourly(
+    page_size: int = 1000,
+    max_rows: int | None = None,
+) -> pd.DataFrame:
+    """
+    Load ESO hourly load forecast from Supabase.
+
+    Source table:
+    eso_load_forecast_hourly
+
+    Columns:
+    - timestamp_utc
+    - eso_load_forecast_mw
+    - created_at
+    """
+    supabase = get_supabase_client()
+
+    all_rows = []
+    start = 0
+
+    while True:
+        end = start + page_size - 1
+
+        response = (
+            supabase
+            .table("eso_load_forecast_hourly")
+            .select("timestamp_utc, eso_load_forecast_mw, created_at")
+            .order("timestamp_utc", desc=False)
+            .range(start, end)
+            .execute()
+        )
+
+        batch = response.data or []
+
+        if not batch:
+            break
+
+        all_rows.extend(batch)
+        print(f"Loaded ESO load forecast rows: {len(all_rows)}")
+
+        if max_rows is not None and len(all_rows) >= max_rows:
+            all_rows = all_rows[:max_rows]
+            break
+
+        if len(batch) < page_size:
+            break
+
+        start += page_size
+
+    df = pd.DataFrame(all_rows)
+
+    if df.empty:
+        raise ValueError("No rows loaded from eso_load_forecast_hourly")
+
+    df["timestamp_utc"] = pd.to_datetime(df["timestamp_utc"], utc=True)
+    df["eso_load_forecast_mw"] = pd.to_numeric(
+        df["eso_load_forecast_mw"],
+        errors="coerce",
+    )
+
     df = df.drop_duplicates(subset=["timestamp_utc"])
     df = df.sort_values("timestamp_utc").reset_index(drop=True)
 
@@ -109,6 +173,34 @@ def validate_market_15m(df: pd.DataFrame) -> None:
         print(missing[:20])
 
 
+def validate_eso_load_forecast_hourly(df: pd.DataFrame) -> None:
+    min_ts = df["timestamp_utc"].min()
+    max_ts = df["timestamp_utc"].max()
+    row_count = len(df)
+
+    expected_range = pd.date_range(start=min_ts, end=max_ts, freq="h", tz="UTC")
+    actual_timestamps = pd.DatetimeIndex(df["timestamp_utc"])
+    missing = expected_range.difference(actual_timestamps)
+
+    print("\n=== eso_load_forecast_hourly validation ===")
+    print(f"Rows loaded: {row_count}")
+    print(f"Min timestamp: {min_ts}")
+    print(f"Max timestamp: {max_ts}")
+    print(f"Expected hourly intervals: {len(expected_range)}")
+    print(f"Missing hourly intervals: {len(missing)}")
+    print(f"Missing eso_load_forecast_mw: {df['eso_load_forecast_mw'].isna().sum()}")
+
+    print("\nFirst rows:")
+    print(df.head())
+
+    print("\nLast rows:")
+    print(df.tail())
+
+    if len(missing) > 0:
+        print("\nFirst missing hourly intervals:")
+        print(missing[:20])
+
+
 if __name__ == "__main__":
-    market_df = load_market_15m()
-    validate_market_15m(market_df)
+    eso_df = load_eso_load_forecast_hourly()
+    validate_eso_load_forecast_hourly(eso_df)
