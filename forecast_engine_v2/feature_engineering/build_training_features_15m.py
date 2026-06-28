@@ -12,6 +12,7 @@ PROJECT_DIR = CURRENT_DIR.parents[0]
 sys.path.append(str(PROJECT_DIR))
 
 from feature_engineering.load_training_data import (
+    load_crossborder_exchange_15m,
     load_eso_load_forecast_hourly,
     load_generation_forecast_hourly,
     load_market_15m,
@@ -131,6 +132,44 @@ def add_generation_forecast_features(
     return merged
 
 
+def add_crossborder_exchange_features(
+    df: pd.DataFrame,
+    crossborder_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Add normalized 15-minute cross-border exchange features.
+
+    Cross-border data has already been normalized to 15-minute resolution
+    in load_crossborder_exchange_15m().
+
+    Features:
+    - scheduled_import_mw
+    - scheduled_export_mw
+    - net_import_mw
+    """
+    df = df.copy()
+    df = df.sort_values("timestamp_utc").reset_index(drop=True)
+
+    crossborder_df = crossborder_df.copy()
+    crossborder_df = crossborder_df[[
+        "timestamp_utc",
+        "scheduled_import_mw",
+        "scheduled_export_mw",
+        "net_import_mw",
+    ]]
+    crossborder_df = crossborder_df.sort_values("timestamp_utc").reset_index(drop=True)
+
+    merged = pd.merge_asof(
+        df,
+        crossborder_df,
+        on="timestamp_utc",
+        direction="backward",
+        tolerance=pd.Timedelta("15min"),
+    )
+
+    return merged
+
+
 if __name__ == "__main__":
     df = load_market_15m()
 
@@ -143,6 +182,9 @@ if __name__ == "__main__":
 
     generation_df = load_generation_forecast_hourly()
     df = add_generation_forecast_features(df, generation_df)
+
+    crossborder_df = load_crossborder_exchange_15m()
+    df = add_crossborder_exchange_features(df, crossborder_df)
 
     print(df.head(10))
 
@@ -168,6 +210,9 @@ if __name__ == "__main__":
         "generation_forecast_mw",
         "generation_margin_mw",
         "generation_to_load_ratio",
+        "scheduled_import_mw",
+        "scheduled_export_mw",
+        "net_import_mw",
     ]].isna().sum())
 
     print("\nFundamental feature coverage inside 15m features:")
@@ -176,6 +221,9 @@ if __name__ == "__main__":
         "generation_forecast_mw",
         "generation_margin_mw",
         "generation_to_load_ratio",
+        "scheduled_import_mw",
+        "scheduled_export_mw",
+        "net_import_mw",
     ]:
         print(
             col,
@@ -193,4 +241,7 @@ if __name__ == "__main__":
         "generation_forecast_mw",
         "generation_margin_mw",
         "generation_to_load_ratio",
+        "scheduled_import_mw",
+        "scheduled_export_mw",
+        "net_import_mw",
     ]].dropna().head(30))
