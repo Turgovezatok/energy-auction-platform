@@ -11,7 +11,10 @@ CURRENT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = CURRENT_DIR.parents[0]
 sys.path.append(str(PROJECT_DIR))
 
-from feature_engineering.load_training_data import load_market_15m
+from feature_engineering.load_training_data import (
+    load_eso_load_forecast_hourly,
+    load_market_15m,
+)
 
 
 def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -49,23 +52,9 @@ def add_price_features(df: pd.DataFrame) -> pd.DataFrame:
     shifted_price = df["dayahead_price"].shift(1)
 
     # Rolling averages
-    df["price_avg_1h"] = (
-        shifted_price
-        .rolling(window=4, min_periods=1)
-        .mean()
-    )
-
-    df["price_avg_4h"] = (
-        shifted_price
-        .rolling(window=16, min_periods=1)
-        .mean()
-    )
-
-    df["price_avg_24h"] = (
-        shifted_price
-        .rolling(window=96, min_periods=1)
-        .mean()
-    )
+    df["price_avg_1h"] = shifted_price.rolling(window=4, min_periods=1).mean()
+    df["price_avg_4h"] = shifted_price.rolling(window=16, min_periods=1).mean()
+    df["price_avg_24h"] = shifted_price.rolling(window=96, min_periods=1).mean()
 
     return df
 
@@ -81,12 +70,45 @@ def add_market_period_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def add_eso_load_forecast_features(
+    df: pd.DataFrame,
+    eso_load_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Add ESO hourly load forecast to 15-minute market rows.
+
+    Logic:
+    - ESO forecast is hourly.
+    - Market data is 15-minute.
+    - For each 15-minute timestamp, use the latest available hourly ESO value.
+    - This is implemented with pandas merge_asof using backward direction.
+    """
+    df = df.copy()
+    df = df.sort_values("timestamp_utc").reset_index(drop=True)
+
+    eso_load_df = eso_load_df.copy()
+    eso_load_df = eso_load_df[["timestamp_utc", "eso_load_forecast_mw"]]
+    eso_load_df = eso_load_df.sort_values("timestamp_utc").reset_index(drop=True)
+
+    merged = pd.merge_asof(
+        df,
+        eso_load_df,
+        on="timestamp_utc",
+        direction="backward",
+    )
+
+    return merged
+
+
 if __name__ == "__main__":
     df = load_market_15m()
 
     df = add_calendar_features(df)
     df = add_price_features(df)
     df = add_market_period_features(df)
+
+    eso_load_df = load_eso_load_forecast_hourly()
+    df = add_eso_load_forecast_features(df, eso_load_df)
 
     print(df.head(10))
 
@@ -105,3 +127,17 @@ if __name__ == "__main__":
         "price_avg_4h",
         "price_avg_24h",
     ]].isna().sum())
+
+    print("\nMissing values in ESO load forecast feature:")
+    print(df[["eso_load_forecast_mw"]].isna().sum())
+
+    print("\nESO load forecast coverage period inside 15m features:")
+    print("First non-null:", df["eso_load_forecast_mw"].first_valid_index())
+    print("Last non-null:", df["eso_load_forecast_mw"].last_valid_index())
+
+    print("\nSample ESO load forecast rows:")
+    print(df[[
+        "timestamp_utc",
+        "dayahead_price",
+        "eso_load_forecast_mw",
+    ]].dropna().head(20))
