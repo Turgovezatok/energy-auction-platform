@@ -16,6 +16,7 @@ from feature_engineering.load_training_data import (
     load_eso_load_forecast_hourly,
     load_generation_forecast_hourly,
     load_market_15m,
+    load_solar_empirical_index_15m_v3,
     load_weather_forecast_hourly,
 )
 
@@ -70,12 +71,6 @@ def add_eso_load_forecast_features(
     df: pd.DataFrame,
     eso_load_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """
-    Add ESO hourly load forecast to 15-minute market rows.
-
-    Hourly forecast values are only valid up to 1 hour backward.
-    If there is a longer data gap, the feature remains NaN.
-    """
     df = df.copy()
     df = df.sort_values("timestamp_utc").reset_index(drop=True)
 
@@ -98,15 +93,6 @@ def add_generation_forecast_features(
     df: pd.DataFrame,
     generation_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """
-    Add ENTSO-E hourly generation forecast to 15-minute market rows.
-
-    Hourly forecast values are only valid up to 1 hour backward.
-
-    Also calculate:
-    - generation_margin_mw = generation_forecast_mw - eso_load_forecast_mw
-    - generation_to_load_ratio = generation_forecast_mw / eso_load_forecast_mw
-    """
     df = df.copy()
     df = df.sort_values("timestamp_utc").reset_index(drop=True)
 
@@ -137,12 +123,6 @@ def add_crossborder_exchange_features(
     df: pd.DataFrame,
     crossborder_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """
-    Add normalized 15-minute cross-border exchange features.
-
-    Cross-border data has already been normalized to 15-minute resolution
-    in load_crossborder_exchange_15m().
-    """
     df = df.copy()
     df = df.sort_values("timestamp_utc").reset_index(drop=True)
 
@@ -170,20 +150,6 @@ def add_weather_forecast_features(
     df: pd.DataFrame,
     weather_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """
-    Add hourly weather forecast features to 15-minute market rows.
-
-    Hourly weather values are only valid up to 1 hour backward.
-
-    Added columns:
-    - temperature_c
-    - wind_speed_ms
-    - direct_radiation
-    - shortwave_radiation
-    - solar_radiation_total
-    - solar_radiation_ratio
-    - is_high_solar_radiation
-    """
     df = df.copy()
     df = df.sort_values("timestamp_utc").reset_index(drop=True)
 
@@ -225,6 +191,66 @@ def add_weather_forecast_features(
     return merged
 
 
+def add_solar_empirical_features(
+    df: pd.DataFrame,
+    solar_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Add empirical solar generation features based on:
+    - month
+    - quarter_hour
+    - radiation_bucket
+    - temperature_bucket
+    """
+    df = df.copy()
+
+    df["radiation_bucket"] = (
+        (df["shortwave_radiation"].fillna(0) // 100) * 100
+    ).astype(int)
+
+    df["temperature_bucket"] = (
+        (df["temperature_c"].fillna(0) // 10) * 10
+    ).astype(int)
+
+    solar_df = solar_df.copy()
+    solar_df = solar_df.rename(
+        columns={
+            "samples_count": "solar_samples_count",
+            "solar_mw_avg": "expected_solar_mw_avg",
+            "solar_mw_p50": "expected_solar_mw_p50",
+            "solar_mw_p90": "expected_solar_mw_p90",
+        }
+    )
+
+    solar_df = solar_df[[
+        "month",
+        "quarter_hour",
+        "radiation_bucket",
+        "temperature_bucket",
+        "solar_samples_count",
+        "expected_solar_mw_avg",
+        "expected_solar_mw_p50",
+        "expected_solar_mw_p90",
+    ]]
+
+    merged = df.merge(
+        solar_df,
+        on=[
+            "month",
+            "quarter_hour",
+            "radiation_bucket",
+            "temperature_bucket",
+        ],
+        how="left",
+    )
+
+    merged["solar_uncertainty_mw"] = (
+        merged["expected_solar_mw_p90"] - merged["expected_solar_mw_p50"]
+    )
+
+    return merged
+
+
 if __name__ == "__main__":
     df = load_market_15m()
 
@@ -244,25 +270,16 @@ if __name__ == "__main__":
     weather_df = load_weather_forecast_hourly()
     df = add_weather_forecast_features(df, weather_df)
 
-    print(df.head(10))
-
-    print("\nColumns:")
-    print(df.columns.tolist())
+    solar_df = load_solar_empirical_index_15m_v3()
+    df = add_solar_empirical_features(df, solar_df)
 
     print("\nRows:")
     print(len(df))
 
-    print("\nMissing values in price features:")
-    print(df[[
-        "price_lag_15m",
-        "price_lag_1h",
-        "price_lag_24h",
-        "price_avg_1h",
-        "price_avg_4h",
-        "price_avg_24h",
-    ]].isna().sum())
+    print("\nColumns:")
+    print(df.columns.tolist())
 
-    print("\nMissing values in fundamental features:")
+    print("\nMissing values in final features:")
     print(df[[
         "eso_load_forecast_mw",
         "generation_forecast_mw",
@@ -278,24 +295,22 @@ if __name__ == "__main__":
         "solar_radiation_total",
         "solar_radiation_ratio",
         "is_high_solar_radiation",
+        "radiation_bucket",
+        "temperature_bucket",
+        "expected_solar_mw_avg",
+        "expected_solar_mw_p50",
+        "expected_solar_mw_p90",
+        "solar_samples_count",
+        "solar_uncertainty_mw",
     ]].isna().sum())
 
-    print("\nFundamental feature coverage inside 15m features:")
+    print("\nSolar empirical feature coverage:")
     for col in [
-        "eso_load_forecast_mw",
-        "generation_forecast_mw",
-        "generation_margin_mw",
-        "generation_to_load_ratio",
-        "scheduled_import_mw",
-        "scheduled_export_mw",
-        "net_import_mw",
-        "temperature_c",
-        "wind_speed_ms",
-        "direct_radiation",
-        "shortwave_radiation",
-        "solar_radiation_total",
-        "solar_radiation_ratio",
-        "is_high_solar_radiation",
+        "expected_solar_mw_avg",
+        "expected_solar_mw_p50",
+        "expected_solar_mw_p90",
+        "solar_samples_count",
+        "solar_uncertainty_mw",
     ]:
         print(
             col,
@@ -305,22 +320,17 @@ if __name__ == "__main__":
             df[col].last_valid_index(),
         )
 
-    print("\nSample fundamental rows:")
+    print("\nSample final rows:")
     print(df[[
         "timestamp_utc",
         "dayahead_price",
-        "eso_load_forecast_mw",
-        "generation_forecast_mw",
-        "generation_margin_mw",
-        "generation_to_load_ratio",
-        "scheduled_import_mw",
-        "scheduled_export_mw",
-        "net_import_mw",
-        "temperature_c",
-        "wind_speed_ms",
-        "direct_radiation",
         "shortwave_radiation",
-        "solar_radiation_total",
-        "solar_radiation_ratio",
-        "is_high_solar_radiation",
+        "temperature_c",
+        "radiation_bucket",
+        "temperature_bucket",
+        "expected_solar_mw_avg",
+        "expected_solar_mw_p50",
+        "expected_solar_mw_p90",
+        "solar_samples_count",
+        "solar_uncertainty_mw",
     ]].dropna().head(30))
