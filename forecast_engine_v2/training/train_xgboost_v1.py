@@ -147,12 +147,47 @@ def main() -> None:
         raise ValueError(f"Missing required columns: {missing_columns}")
 
     model_df = df[required_columns].copy()
-    model_df = model_df.dropna().reset_index(drop=True)
 
-    print(f"\nRows after dropna: {len(model_df)}")
+print("\nMissing values before filling:")
+print(model_df[FEATURE_COLUMNS].isna().sum().sort_values(ascending=False).head(30))
 
-    if len(model_df) < 100:
-        raise ValueError("Not enough rows after dropna to train a model")
+fill_zero_columns = [
+    "eso_load_forecast_mw",
+    "generation_forecast_mw",
+    "generation_margin_mw",
+    "generation_to_load_ratio",
+    "scheduled_import_mw",
+    "scheduled_export_mw",
+    "net_import_mw",
+    "temperature_c",
+    "wind_speed_ms",
+    "direct_radiation",
+    "shortwave_radiation",
+    "solar_radiation_total",
+    "solar_radiation_ratio",
+    "is_high_solar_radiation",
+    "radiation_bucket",
+    "temperature_bucket",
+    "expected_solar_mw_avg",
+    "expected_solar_mw_p50",
+    "expected_solar_mw_p90",
+    "solar_samples_count",
+    "solar_uncertainty_mw",
+]
+
+model_df[fill_zero_columns] = model_df[fill_zero_columns].fillna(0)
+
+model_df = model_df.dropna(subset=[
+    TARGET_COLUMN,
+    "price_lag_15m",
+    "price_lag_1h",
+    "price_lag_24h",
+    "price_avg_1h",
+    "price_avg_4h",
+    "price_avg_24h",
+]).reset_index(drop=True)
+
+print(f"\nRows after feature fallback: {len(model_df)}")
 
     print(
         "Training period after dropna:",
