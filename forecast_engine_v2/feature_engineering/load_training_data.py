@@ -7,6 +7,7 @@ This module:
 - loads ESO hourly load forecast using pagination
 - loads ENTSO-E hourly generation forecast using pagination
 - loads and aggregates ENTSO-E cross-border exchange data
+- loads Open-Meteo hourly weather forecast
 - checks date ranges, row counts, and missing intervals
 """
 
@@ -52,7 +53,6 @@ def load_market_15m(page_size: int = 1000, max_rows: int | None = None) -> pd.Da
         )
 
         batch = response.data or []
-
         if not batch:
             break
 
@@ -102,7 +102,6 @@ def load_eso_load_forecast_hourly(
         )
 
         batch = response.data or []
-
         if not batch:
             break
 
@@ -128,7 +127,6 @@ def load_eso_load_forecast_hourly(
         df["eso_load_forecast_mw"],
         errors="coerce",
     )
-
     df = df.drop_duplicates(subset=["timestamp_utc"])
     df = df.sort_values("timestamp_utc").reset_index(drop=True)
 
@@ -156,7 +154,6 @@ def load_generation_forecast_hourly(
         )
 
         batch = response.data or []
-
         if not batch:
             break
 
@@ -182,7 +179,6 @@ def load_generation_forecast_hourly(
         df["generation_forecast_mw"],
         errors="coerce",
     )
-
     df = df.drop_duplicates(subset=["timestamp_utc"])
     df = df.sort_values("timestamp_utc").reset_index(drop=True)
 
@@ -217,7 +213,6 @@ def load_crossborder_exchange_15m(
         )
 
         batch = response.data or []
-
         if not batch:
             break
 
@@ -278,6 +273,82 @@ def load_crossborder_exchange_15m(
     )
 
     df["net_import_mw"] = df["scheduled_import_mw"] - df["scheduled_export_mw"]
+    df = df.sort_values("timestamp_utc").reset_index(drop=True)
+
+    return df
+
+
+def load_weather_forecast_hourly(
+    page_size: int = 1000,
+    max_rows: int | None = None,
+) -> pd.DataFrame:
+    """
+    Load Open-Meteo hourly weather forecast.
+
+    Output columns:
+    - timestamp_utc
+    - temperature_c
+    - wind_speed_ms
+    - direct_radiation
+    - shortwave_radiation
+    """
+    supabase = get_supabase_client()
+    all_rows = []
+    start = 0
+
+    while True:
+        end = start + page_size - 1
+
+        response = (
+            supabase
+            .table("weather_forecast_hourly")
+            .select(
+                "timestamp_utc, "
+                "temperature_c, "
+                "wind_speed_ms, "
+                "direct_radiation, "
+                "shortwave_radiation, "
+                "created_at"
+            )
+            .order("timestamp_utc", desc=False)
+            .range(start, end)
+            .execute()
+        )
+
+        batch = response.data or []
+        if not batch:
+            break
+
+        all_rows.extend(batch)
+        print(f"Loaded weather rows: {len(all_rows)}")
+
+        if max_rows is not None and len(all_rows) >= max_rows:
+            all_rows = all_rows[:max_rows]
+            break
+
+        if len(batch) < page_size:
+            break
+
+        start += page_size
+
+    df = pd.DataFrame(all_rows)
+
+    if df.empty:
+        raise ValueError("No rows loaded from weather_forecast_hourly")
+
+    df["timestamp_utc"] = pd.to_datetime(df["timestamp_utc"], utc=True)
+
+    numeric_cols = [
+        "temperature_c",
+        "wind_speed_ms",
+        "direct_radiation",
+        "shortwave_radiation",
+    ]
+
+    for col in numeric_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df = df.drop_duplicates(subset=["timestamp_utc"])
     df = df.sort_values("timestamp_utc").reset_index(drop=True)
 
     return df
@@ -393,6 +464,40 @@ def validate_crossborder_exchange_15m(df: pd.DataFrame) -> None:
         print(missing[:20])
 
 
+def validate_weather_forecast_hourly(df: pd.DataFrame) -> None:
+    min_ts = df["timestamp_utc"].min()
+    max_ts = df["timestamp_utc"].max()
+
+    expected_range = pd.date_range(start=min_ts, end=max_ts, freq="h", tz="UTC")
+    actual_timestamps = pd.DatetimeIndex(df["timestamp_utc"])
+    missing = expected_range.difference(actual_timestamps)
+
+    print("\n=== weather_forecast_hourly validation ===")
+    print(f"Rows loaded: {len(df)}")
+    print(f"Min timestamp: {min_ts}")
+    print(f"Max timestamp: {max_ts}")
+    print(f"Expected hourly intervals: {len(expected_range)}")
+    print(f"Missing hourly intervals: {len(missing)}")
+
+    print("\nMissing values:")
+    print(df[[
+        "temperature_c",
+        "wind_speed_ms",
+        "direct_radiation",
+        "shortwave_radiation",
+    ]].isna().sum())
+
+    print("\nFirst rows:")
+    print(df.head())
+
+    print("\nLast rows:")
+    print(df.tail())
+
+    if len(missing) > 0:
+        print("\nFirst missing hourly intervals:")
+        print(missing[:20])
+
+
 if __name__ == "__main__":
-    crossborder_df = load_crossborder_exchange_15m()
-    validate_crossborder_exchange_15m(crossborder_df)
+    weather_df = load_weather_forecast_hourly()
+    validate_weather_forecast_hourly(weather_df)
