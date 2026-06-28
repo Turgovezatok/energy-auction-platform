@@ -354,6 +354,42 @@ def load_weather_forecast_hourly(
     return df
 
 
+
+
+def load_solar_empirical_index_15m_v3(
+    page_size: int = 1000,
+    max_rows: int | None = None,
+    min_samples_count: int = 8,
+) -> pd.DataFrame:
+    """Load empirical solar generation lookup table."""
+    supabase = get_supabase_client()
+    all_rows=[]; start=0
+    while True:
+        end=start+page_size-1
+        response=(supabase.table("solar_empirical_index_15m_v3")
+            .select("month, quarter_hour, radiation_bucket, temperature_bucket, samples_count, solar_mw_avg, solar_mw_p50, solar_mw_p90")
+            .gte("samples_count", min_samples_count)
+            .order("month", desc=False)
+            .order("quarter_hour", desc=False)
+            .order("radiation_bucket", desc=False)
+            .order("temperature_bucket", desc=False)
+            .range(start,end).execute())
+        batch=response.data or []
+        if not batch: break
+        all_rows.extend(batch)
+        print(f"Loaded solar empirical rows: {len(all_rows)}")
+        if max_rows is not None and len(all_rows)>=max_rows:
+            all_rows=all_rows[:max_rows]; break
+        if len(batch)<page_size: break
+        start+=page_size
+    df=pd.DataFrame(all_rows)
+    if df.empty: raise ValueError("No rows loaded from solar_empirical_index_15m_v3")
+    for c in ["samples_count","solar_mw_avg","solar_mw_p50","solar_mw_p90","radiation_bucket","temperature_bucket"]:
+        df[c]=pd.to_numeric(df[c],errors='coerce')
+    df['month']=df['month'].astype(int)
+    df['quarter_hour']=df['quarter_hour'].astype(int)
+    return df.sort_values(["month","quarter_hour","radiation_bucket","temperature_bucket"]).reset_index(drop=True)
+
 def validate_market_15m(df: pd.DataFrame) -> None:
     min_ts = df["timestamp_utc"].min()
     max_ts = df["timestamp_utc"].max()
@@ -499,5 +535,22 @@ def validate_weather_forecast_hourly(df: pd.DataFrame) -> None:
 
 
 if __name__ == "__main__":
-    weather_df = load_weather_forecast_hourly()
-    validate_weather_forecast_hourly(weather_df)
+    df = load_solar_empirical_index_15m_v3()
+
+    print(df.head())
+
+    print("\nColumns:")
+    print(df.columns.tolist())
+
+    print("\nRows:")
+    print(len(df))
+
+    print("\nSamples statistics:")
+    print(df["samples_count"].describe())
+
+    print("\nSolar statistics:")
+    print(df[[
+        "solar_mw_avg",
+        "solar_mw_p50",
+        "solar_mw_p90",
+    ]].describe())
