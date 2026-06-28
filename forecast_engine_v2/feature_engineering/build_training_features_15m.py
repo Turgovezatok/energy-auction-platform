@@ -70,6 +70,9 @@ def add_eso_load_forecast_features(
 ) -> pd.DataFrame:
     """
     Add ESO hourly load forecast to 15-minute market rows.
+
+    Hourly forecast values are only valid up to 1 hour backward.
+    If there is a longer data gap, the feature remains NaN.
     """
     df = df.copy()
     df = df.sort_values("timestamp_utc").reset_index(drop=True)
@@ -83,6 +86,7 @@ def add_eso_load_forecast_features(
         eso_load_df,
         on="timestamp_utc",
         direction="backward",
+        tolerance=pd.Timedelta("1h"),
     )
 
     return merged
@@ -94,6 +98,8 @@ def add_generation_forecast_features(
 ) -> pd.DataFrame:
     """
     Add ENTSO-E hourly generation forecast to 15-minute market rows.
+
+    Hourly forecast values are only valid up to 1 hour backward.
 
     Also calculate:
     - generation_margin_mw = generation_forecast_mw - eso_load_forecast_mw
@@ -111,6 +117,7 @@ def add_generation_forecast_features(
         generation_df,
         on="timestamp_utc",
         direction="backward",
+        tolerance=pd.Timedelta("1h"),
     )
 
     merged["generation_margin_mw"] = (
