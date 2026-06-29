@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import joblib
+import pandas as pd
 from supabase import create_client
 
 
@@ -111,7 +112,28 @@ def complete_forecast_run(supabase, forecast_run_id: str) -> None:
         .eq("id", forecast_run_id)
         .execute()
     )
+def build_target_timestamps() -> pd.DataFrame:
+    """
+    Build the next 96 forecast timestamps (24h ahead).
+    """
 
+    now_utc = pd.Timestamp.now(tz="UTC")
+
+    first_target = now_utc.ceil("15min")
+
+    timestamps = pd.date_range(
+        start=first_target,
+        periods=96,
+        freq="15min",
+        tz="UTC",
+    )
+
+    df = pd.DataFrame({
+        "target_timestamp_utc": timestamps,
+        "horizon_step": range(1, 97),
+    })
+
+    return df
 
 def main() -> None:
     print("\n=== Forecast Engine v2 prediction run ===")
@@ -132,11 +154,13 @@ def main() -> None:
     print(f"\nForecast date: {forecast_date}")
     print(f"Run number: {run_number}")
 
-    forecast_run_id = create_forecast_run(
-        supabase=supabase,
-        forecast_date=forecast_date,
-        run_number=run_number,
-    )
+    target_df = build_target_timestamps()
+
+    print("\nTarget timestamps:")
+    print(target_df.head(10))
+    print("...")
+    print(target_df.tail(10))
+    print(f"\nTarget rows: {len(target_df)}")
 
     print(f"Forecast run created: {forecast_run_id}")
 
