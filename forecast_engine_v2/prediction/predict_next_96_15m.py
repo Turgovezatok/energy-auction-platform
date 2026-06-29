@@ -1,10 +1,10 @@
 """
 Predict next 96 x 15-minute intervals for Forecast Engine v2.
 
-Step 2:
+Step 3:
 - load trained XGBoost model
-- create forecast run in Supabase
-- mark run as completed
+- generate next 96 target timestamps
+- print target horizon
 """
 
 import sys
@@ -112,13 +112,13 @@ def complete_forecast_run(supabase, forecast_run_id: str) -> None:
         .eq("id", forecast_run_id)
         .execute()
     )
+
+
 def build_target_timestamps() -> pd.DataFrame:
     """
-    Build the next 96 forecast timestamps (24h ahead).
+    Build the next 96 forecast timestamps, starting from the next 15-minute boundary.
     """
-
     now_utc = pd.Timestamp.now(tz="UTC")
-
     first_target = now_utc.ceil("15min")
 
     timestamps = pd.date_range(
@@ -128,12 +128,11 @@ def build_target_timestamps() -> pd.DataFrame:
         tz="UTC",
     )
 
-    df = pd.DataFrame({
+    return pd.DataFrame({
         "target_timestamp_utc": timestamps,
         "horizon_step": range(1, 97),
     })
 
-    return df
 
 def main() -> None:
     print("\n=== Forecast Engine v2 prediction run ===")
@@ -161,12 +160,6 @@ def main() -> None:
     print("...")
     print(target_df.tail(10))
     print(f"\nTarget rows: {len(target_df)}")
-
-    print(f"Forecast run created: {forecast_run_id}")
-
-    complete_forecast_run(supabase, forecast_run_id)
-
-    print("Forecast run marked as completed.")
 
 
 if __name__ == "__main__":
