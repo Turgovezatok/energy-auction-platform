@@ -75,25 +75,30 @@ def fail_forecast_run(supabase, forecast_run_id: str, error_message: str):
         .table("forecast_runs_15m")
         .update({
             "status": "failed",
-            "error_message": error_message[:1000],
         })
         .eq("id", forecast_run_id)
         .execute()
     )
 
 
-def build_forecast_result_rows(forecast_run_id, features_df, predictions):
+def build_forecast_result_rows(
+    forecast_run_id,
+    forecast_date,
+    run_number,
+    features_df,
+    predictions,
+):
     rows = []
 
     for idx, prediction in enumerate(predictions):
-        row = {
+        rows.append({
             "forecast_run_id": forecast_run_id,
+            "forecast_date": forecast_date,
+            "run_number": run_number,
             "target_timestamp_utc": features_df.iloc[idx]["timestamp_utc"].isoformat(),
             "horizon_step": idx + 1,
             "predicted_price_eur_mwh": float(prediction),
-        }
-
-        rows.append(row)
+        })
 
     return rows
 

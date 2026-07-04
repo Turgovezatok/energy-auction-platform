@@ -1,32 +1,43 @@
 """
-Predict next 96 x 15-minute intervals for Forecast Engine v2.
+Production prediction script for Forecast Engine v2.
 
-Step 3:
-- load trained XGBoost model
-- generate next 96 target timestamps
-- print target horizon
+Flow:
+- load trained XGBoost model bundle
+- load latest runtime data
+- build next 96 x 15-minute runtime features
+- predict prices
+- create forecast run
+- insert 96 forecast rows
+- mark run completed / failed
 """
 
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 import joblib
-import pandas as pd
 from supabase import create_client
 
 
 CURRENT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = CURRENT_DIR.parents[0]
 sys.path.append(str(PROJECT_DIR))
+sys.path.append(str(CURRENT_DIR))
+
 
 from config.settings import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+from feature_columns import FEATURE_COLUMNS
+from runtime_data_loader import load_all_runtime_data
+from runtime_features import build_runtime_features
+from forecast_writer import (
+    create_forecast_run,
+    complete_forecast_run,
+    fail_forecast_run,
+    build_forecast_result_rows,
+    insert_forecast_results,
+)
 
 
 MODEL_PATH = PROJECT_DIR / "models" / "training" / "xgboost_v1_15m.pkl"
-
-MODEL_NAME = "xgboost_v1_15m"
-MODEL_VERSION = "v1"
 
 
 def get_supabase_client():
@@ -45,6 +56,9 @@ def load_model_bundle():
 
     bundle = joblib.load(MODEL_PATH)
 
+    if not isinstance(bundle, dict):
+        raise ValueError("Model file must contain a dict bundle")
+
     if "model" not in bundle:
         raise ValueError("Model bundle missing key: model")
 
@@ -54,112 +68,93 @@ def load_model_bundle():
     return bundle
 
 
-def get_next_run_number(supabase, forecast_date: str) -> int:
-    response = (
-        supabase
-        .table("forecast_runs_15m")
-        .select("run_number")
-        .eq("forecast_date", forecast_date)
-        .eq("model_name", MODEL_NAME)
-        .order("run_number", desc=True)
-        .limit(1)
-        .execute()
-    )
+def validate_feature_columns(model_features):
+    if list(model_features) != list(FEATURE_COLUMNS):
+        missing_in_runtime = [c for c in model_features if c not in FEATURE_COLUMNS]
+        extra_in_runtime = [c for c in FEATURE_COLUMNS if c not in model_features]
 
-    rows = response.data or []
-
-    if not rows:
-        return 1
-
-    last_run_number = int(rows[0]["run_number"])
-
-    if last_run_number >= 9:
-        raise ValueError(f"All 9 forecast runs already exist for {forecast_date}")
-
-    return last_run_number + 1
+        raise ValueError(
+            "Feature mismatch between model bundle and runtime FEATURE_COLUMNS. "
+            f"Missing in runtime: {missing_in_runtime}. "
+            f"Extra in runtime: {extra_in_runtime}."
+        )
 
 
-def create_forecast_run(supabase, forecast_date: str, run_number: int) -> str:
-    response = (
-        supabase
-        .table("forecast_runs_15m")
-        .insert({
-            "forecast_date": forecast_date,
-            "run_number": run_number,
-            "model_name": MODEL_NAME,
-            "model_version": MODEL_VERSION,
-            "horizon_intervals": 96,
-            "status": "started",
-        })
-        .execute()
-    )
-
-    rows = response.data or []
-
-    if not rows:
-        raise ValueError("Failed to create forecast run")
-
-    return rows[0]["id"]
-
-
-def complete_forecast_run(supabase, forecast_run_id: str) -> None:
-    (
-        supabase
-        .table("forecast_runs_15m")
-        .update({
-            "status": "completed",
-        })
-        .eq("id", forecast_run_id)
-        .execute()
-    )
-
-
-def build_target_timestamps() -> pd.DataFrame:
-    """
-    Build the next 96 forecast timestamps, starting from the next 15-minute boundary.
-    """
-    now_utc = pd.Timestamp.now(tz="UTC")
-    first_target = now_utc.ceil("15min")
-
-    timestamps = pd.date_range(
-        start=first_target,
-        periods=96,
-        freq="15min",
-        tz="UTC",
-    )
-
-    return pd.DataFrame({
-        "target_timestamp_utc": timestamps,
-        "horizon_step": range(1, 97),
-    })
-
-
-def main() -> None:
-    print("\n=== Forecast Engine v2 prediction run ===")
+def main():
+    print("\n=== Forecast Engine v2 production prediction run ===")
     print(f"Model path: {MODEL_PATH}")
 
-    bundle = load_model_bundle()
-
-    print("\nModel loaded successfully.")
-    print(f"Features count: {len(bundle['features'])}")
-    print(f"Training MAE: {bundle.get('mae')}")
-    print(f"Training RMSE: {bundle.get('rmse')}")
-
     supabase = get_supabase_client()
+    forecast_run_id = None
 
-    forecast_date = datetime.now(timezone.utc).date().isoformat()
-    run_number = get_next_run_number(supabase, forecast_date)
+    try:
+        bundle = load_model_bundle()
+        model = bundle["model"]
+        model_features = bundle["features"]
 
-    print(f"\nForecast date: {forecast_date}")
-    print(f"Run number: {run_number}")
+        print("\nModel loaded successfully.")
+        print(f"Features count: {len(model_features)}")
+        print(f"Training MAE: {bundle.get('mae')}")
+        print(f"Training RMSE: {bundle.get('rmse')}")
 
-    target_df = build_target_timestamps()
+        validate_feature_columns(model_features)
 
-    print("\nTarget timestamps:")
-    print(target_df.head(10))
-    print("...")
-    print(target_df.tail(10))
-    print(f"\nTarget rows: {len(target_df)}")
+        print("\nLoading runtime data...")
+        runtime_data = load_all_runtime_data()
+
+        print("Building runtime features...")
+        features_df = build_runtime_features(runtime_data, periods=96)
+
+        if len(features_df) != 96:
+            raise ValueError(f"Expected 96 feature rows, got {len(features_df)}")
+
+        X = features_df[FEATURE_COLUMNS]
+
+        print("Running model prediction...")
+        predictions = model.predict(X)
+
+        if len(predictions) != 96:
+            raise ValueError(f"Expected 96 predictions, got {len(predictions)}")
+
+        print("Creating forecast run...")
+        forecast_run_id, forecast_date, run_number = create_forecast_run(supabase)
+
+        print(f"Forecast date: {forecast_date}")
+        print(f"Run number: {run_number}")
+        print(f"Forecast run id: {forecast_run_id}")
+
+        rows = build_forecast_result_rows(
+            forecast_run_id=forecast_run_id,
+            forecast_date=forecast_date,
+            run_number=run_number,
+            features_df=features_df,
+            predictions=predictions,
+        )
+
+        print("Inserting forecast result rows...")
+        inserted_rows = insert_forecast_results(supabase, rows)
+
+        print(f"Inserted rows: {len(inserted_rows)}")
+
+        complete_forecast_run(supabase, forecast_run_id)
+
+        print("\n✅ Forecast completed successfully.")
+        print(f"Run number: {run_number}")
+        print(f"Rows predicted: {len(predictions)}")
+
+        print("\nPrediction sample:")
+        for i in range(min(10, len(predictions))):
+            ts = features_df.iloc[i]["timestamp_utc"]
+            price = float(predictions[i])
+            print(f"{i + 1:02d} | {ts} | {price:.2f} EUR/MWh")
+
+    except Exception as exc:
+        print(f"\n❌ Forecast failed: {exc}")
+
+        if forecast_run_id:
+            fail_forecast_run(supabase, forecast_run_id, str(exc))
+
+        raise
 
 
 if __name__ == "__main__":
