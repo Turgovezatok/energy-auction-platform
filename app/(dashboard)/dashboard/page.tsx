@@ -1,154 +1,47 @@
 export default function DashboardPage() {
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#f1f5f9",
-        fontFamily: "Arial",
-        display: "flex",
-      }}
-    >
-      {/* Sidebar */}
-      <aside
-        style={{
-          width: 260,
-          background: "#0f172a",
-          color: "white",
-          padding: 24,
-        }}
-      >
-        <h2
-          style={{
-            marginBottom: 40,
-            color: "#10b981",
-          }}
-        >
-          EnergyBid
-        </h2>
+    <div>
+      <h1 className="text-3xl font-bold mb-2">
+        Dashboard
+      </h1>
 
-        <nav
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 18,
-          }}
-        >
-          <a href="#" style={{ color: "white", textDecoration: "none" }}>
-            Dashboard
-          </a>
+      <p className="text-gray-500 mb-8">
+        Добре дошли в EnergyBid платформата.
+      </p>
 
-          <a href="#" style={{ color: "white", textDecoration: "none" }}>
-            Моите търгове
-          </a>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-          <a href="#" style={{ color: "white", textDecoration: "none" }}>
-            Оферти
-          </a>
+        <div className="panel">
+          <h3 className="text-lg font-semibold">
+            Активни търгове
+          </h3>
 
-          <a href="#" style={{ color: "white", textDecoration: "none" }}>
-            Пазар
-          </a>
-
-          <a href="#" style={{ color: "white", textDecoration: "none" }}>
-            Настройки
-          </a>
-        </nav>
-      </aside>
-
-      {/* Content */}
-      <section
-        style={{
-          flex: 1,
-          padding: 40,
-        }}
-      >
-        <h1
-          style={{
-            fontSize: 40,
-            marginBottom: 12,
-          }}
-        >
-          Dashboard
-        </h1>
-
-        <p
-          style={{
-            color: "#64748b",
-            marginBottom: 40,
-          }}
-        >
-          Добре дошли в EnergyBid платформата.
-        </p>
-
-        {/* Cards */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 24,
-          }}
-        >
-          <div
-            style={{
-              background: "white",
-              padding: 28,
-              borderRadius: 20,
-            }}
-          >
-            <h3>Активни търгове</h3>
-
-            <p
-              style={{
-                fontSize: 42,
-                fontWeight: 700,
-                color: "#10b981",
-              }}
-            >
-              12
-            </p>
-          </div>
-
-          <div
-            style={{
-              background: "white",
-              padding: 28,
-              borderRadius: 20,
-            }}
-          >
-            <h3>Получени оферти</h3>
-
-            <p
-              style={{
-                fontSize: 42,
-                fontWeight: 700,
-                color: "#0ea5e9",
-              }}
-            >
-              37
-            </p>
-          </div>
-
-          <div
-            style={{
-              background: "white",
-              padding: 28,
-              borderRadius: 20,
-            }}
-          >
-            <h3>Средна цена</h3>
-
-            <p
-              style={{
-                fontSize: 42,
-                fontWeight: 700,
-                color: "#f59e0b",
-              }}
-            >
-              152 лв
-            </p>
-          </div>
+          <p className="text-4xl font-bold text-success mt-8">
+            12
+          </p>
         </div>
-      </section>
-    </main>
+
+        <div className="panel">
+          <h3 className="text-lg font-semibold">
+            Получени оферти
+          </h3>
+
+          <p className="text-4xl font-bold text-primary mt-8">
+            37
+          </p>
+        </div>
+
+        <div className="panel">
+          <h3 className="text-lg font-semibold">
+            Средна цена
+          </h3>
+
+          <p className="text-4xl font-bold text-warning mt-8">
+            152 лв
+          </p>
+        </div>
+
+      </div>
+    </div>
   );
 }
