@@ -25,9 +25,7 @@ export default function DashboardLayout({
         <div className="main-content flex min-h-screen flex-col">
           <Header />
 
-          <ContentAnimation>
-            {children}
-          </ContentAnimation>
+          <ContentAnimation>{children}</ContentAnimation>
 
           <Footer />
           <Portals />
