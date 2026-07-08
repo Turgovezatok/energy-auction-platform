@@ -1,6 +1,10 @@
+import ProviderComponent from "@/components/layouts/provider-component";
+import "@/styles/tailwind.css";
+import "@/styles/animate.css";
+
 export const metadata = {
-  title: "Energy Auction Platform",
-  description: "Reverse auction platform"
+  title: "EnergyBid",
+  description: "Energy auction platform",
 };
 
 export default function RootLayout({
@@ -10,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="bg">
-      <body>{children}</body>
+      <body>
+        <ProviderComponent>{children}</ProviderComponent>
+      </body>
     </html>
   );
 }
