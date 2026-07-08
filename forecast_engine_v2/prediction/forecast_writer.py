@@ -98,6 +98,8 @@ def build_forecast_result_rows(
             "target_timestamp_utc": features_df.iloc[idx]["timestamp_utc"].isoformat(),
             "horizon_step": idx + 1,
             "predicted_price_eur_mwh": float(prediction),
+            "model_name": MODEL_NAME,
+            "model_version": MODEL_VERSION,
         })
 
     return rows
