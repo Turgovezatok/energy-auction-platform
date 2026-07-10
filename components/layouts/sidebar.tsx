@@ -213,7 +213,7 @@ const Sidebar = () => {
                             </h2>
 
                             <li className="nav-item">
-                                <Link href="/dashboard" className="group">
+                                <Link href="/mydashboard" className="group">
                                     <div className="flex items-center">
                                         <IconMenuUsers className="shrink-0 group-hover:!text-primary" />
                                         <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">
