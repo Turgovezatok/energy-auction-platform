@@ -29,7 +29,7 @@ export default function LoginPage() {
     <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f8fafc", fontFamily: "Arial" }}>
       <form onSubmit={handleLogin} style={{ width: 420, background: "white", padding: 36, borderRadius: 24, boxShadow: "0 20px 60px rgba(15,23,42,0.12)" }}>
         <h1 style={{ marginTop: 0 }}>Вход</h1>
-        <p style={{ color: "#64748b" }}>Влезте в EnergyBid платформата.</p>
+        <p style={{ color: "#64748b" }}>Влезте в energo.broker платформата.</p>
 
         <label>Имейл</label>
         <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required style={{ width: "100%", padding: 14, margin: "8px 0 18px", borderRadius: 12, border: "1px solid #cbd5e1" }} />

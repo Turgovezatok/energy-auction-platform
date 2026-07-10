@@ -125,7 +125,7 @@ export default function RegisterPage() {
             marginBottom: 24,
           }}
         >
-          Създайте профил в EnergyBid.
+          Създайте профил в energo.broker.
         </p>
 
         <label>Фирма</label>

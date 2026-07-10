@@ -3,7 +3,7 @@ import "@/styles/tailwind.css";
 import "@/styles/animate.css";
 
 export const metadata = {
-  title: "EnergyBid",
+  title: "energo.broker",
   description: "Energy auction platform",
 };
 

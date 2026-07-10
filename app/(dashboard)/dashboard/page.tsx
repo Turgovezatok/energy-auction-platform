@@ -6,7 +6,7 @@ export default function DashboardPage() {
       </h1>
 
       <p className="text-gray-500 mb-8">
-        Добре дошли в EnergyBid платформата.
+        Добре дошли в energo.broker платформата.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
