@@ -35,8 +35,14 @@ CURRENT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = CURRENT_DIR.parents[0]
 
 # Load the project .env file.
-load_dotenv(PROJECT_DIR.parent / ".env.local")
-load_dotenv(PROJECT_DIR / ".env")
+ENV_ROOT = PROJECT_DIR.parent
+ENV_FILE = ENV_ROOT / ".env"
+ENV_LOCAL_FILE = ENV_ROOT / ".env.local"
+
+if ENV_FILE.exists():
+    load_dotenv(ENV_FILE, override=True)
+elif ENV_LOCAL_FILE.exists():
+    load_dotenv(ENV_LOCAL_FILE, override=True)
 
 ENTSOE_API_URL = "https://web-api.tp.entsoe.eu/api"
 BULGARIA_BIDDING_ZONE = "10YCA-BULGARIA-R"
