@@ -69,8 +69,18 @@ export default function ConsumerOnboardingPage() {
         }
       );
 
-      const extractionResult =
-        await extractionResponse.json();
+      const extractionText = await extractionResponse.text();
+      let extractionResult: { error?: string } = {};
+      try {
+        extractionResult = JSON.parse(extractionText);
+      } catch {
+        extractionResult = {
+          error:
+            extractionResponse.status === 429
+              ? "Твърде много заявки в момента. Моля, опитайте отново след минута."
+              : `Сървърът върна неочакван отговор (HTTP ${extractionResponse.status}). Моля, опитайте отново.`,
+        };
+      }
 
       if (
         !extractionResponse.ok ||

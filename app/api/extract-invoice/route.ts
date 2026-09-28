@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { extractInvoiceFromPdf, InvoiceServiceBusyError } from "@/lib/invoice-extraction";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,6 +51,8 @@ function extractInvoicePeriod(reportingPeriod: any): {
   };
 }
 
+export const maxDuration = 120;
+
 export async function POST(req: Request) {
   try {
     const { fileUrl, invoiceId } = await req.json();
@@ -62,146 +65,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing invoiceId" }, { status: 400 });
     }
 
-    if (!process.env.PDF_SERVICE_URL) {
-      throw new Error("Missing PDF_SERVICE_URL environment variable");
-    }
-
-    const pdfServiceResponse = await fetch(
-      `${process.env.PDF_SERVICE_URL}/extract`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileUrl }),
-      }
-    );
-
-    const pdfResult = await pdfServiceResponse.json();
-
-    if (!pdfServiceResponse.ok || !pdfResult.text) {
-      throw new Error(pdfResult.detail || "PDF extraction failed");
-    }
-
-    const trimmedText = String(pdfResult.text).slice(0, 120000);
-
-    const openaiResponse = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4.1-mini",
-          response_format: { type: "json_object" },
-          messages: [
-            {
-              role: "system",
-              content: `You extract structured electricity invoice data.
-
-Return ONLY valid JSON.
-Do not invent data.
-If a field is not visible in the invoice, return null.
-Use only values explicitly present in the invoice text.
-
-supplier_name = electricity supplier / invoice issuer / доставчик / издател на фактурата.
-company_name = customer / recipient / получател / клиент.
-
-Never use the supplier as company_name.
-
-For paid energy fields:
-- paid_energy_total = total value of active energy / electricity energy only, excluding VAT, network fees, excise and other charges.
-- paid_energy_price = unit price of active energy / electricity energy.
-- paid_energy_currency = currency shown next to the active energy amount or invoice currency, usually BGN or EUR.
-- total_energy_kwh = total active energy quantity in kWh.
-Use the master/summary row near the beginning of the invoice when available.
-Look for phrases like:
-"Активна енергия за периода",
-"Активна енергия",
-"Ел. енергия",
-"Електрическа енергия".
-Do not use total invoice amount, VAT amount, network fees, excise or final payable amount as paid_energy_total.`,
-            },
-            {
-              role: "user",
-              content: `Analyze this electricity invoice text:
-
-${trimmedText}
-
-Extract:
-- invoice_number
-- company_name
-- EIK
-- VAT_number
-- client_number
-- reporting_period
-- supplier_name
-- total_consumption_MWh
-- energy_price_EUR_MWh
-- paid_energy_total
-- paid_energy_price
-- paid_energy_currency
-- total_energy_kwh
-
-Also extract ALL sites / ALL ITN objects.
-
-Return exactly this JSON structure:
-
-{
-  "invoice_number": null,
-  "company_name": null,
-  "EIK": null,
-  "VAT_number": null,
-  "client_number": null,
-  "reporting_period": null,
-  "supplier_name": null,
-  "total_consumption_MWh": null,
-  "energy_price_EUR_MWh": null,
-  "paid_energy_total": null,
-  "paid_energy_price": null,
-  "paid_energy_currency": null,
-  "total_energy_kwh": null,
-  "sites": [
-    {
-      "itn": null,
-      "meter_number": null,
-      "address": null,
-      "site_name": null,
-      "distribution_operator": null,
-      "consumption_MWh": null,
-      "energy_price_EUR_MWh": null,
-      "tariff_zones": [
-        {
-          "zone_name": null,
-          "tariff_code": null,
-          "consumption_kwh": null
-        }
-      ]
-    }
-  ]
-}`,
-            },
-          ],
-          temperature: 0,
-        }),
-      }
-    );
-
-    if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text();
-      throw new Error(`OpenAI extraction failed: ${errorText}`);
-    }
-
-    const result = await openaiResponse.json();
-    const content = result.choices?.[0]?.message?.content;
-
-    let extracted: any;
-
-    try {
-      extracted = JSON.parse(content || "{}");
-    } catch {
-      extracted = { raw_response: content };
-    }
+    const extracted: any = await extractInvoiceFromPdf(fileUrl);
 
     const period = extractInvoicePeriod(extracted.reporting_period);
 
@@ -336,12 +200,13 @@ Return exactly this JSON structure:
       loadProfile,
     });
   } catch (error: any) {
+    const busy = error instanceof InvoiceServiceBusyError;
     return NextResponse.json(
       {
         success: false,
         error: error.message || "Extraction failed",
       },
-      { status: 500 }
+      { status: busy ? 429 : 500 }
     );
   }
 }
