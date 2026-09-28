@@ -7,6 +7,7 @@ import InfoTile from "@/components/confirm-auction/info-tile";
 import OptionCard from "@/components/confirm-auction/option-card";
 import LoadProfileUpload from "@/components/confirm-auction/load-profile-upload";
 import EmailVerification from "@/components/confirm-auction/email-verification";
+import CaptureSummary from "@/components/confirm-auction/capture-summary";
 
 const PERIODS = [3, 6, 12, 24, 36];
 
@@ -502,6 +503,14 @@ export default function ConfirmAuctionPage() {
                 {estimatedContractKwh.toLocaleString("bg-BG", { maximumFractionDigits: 0 })} kWh
               </div>
             </div>
+
+            <CaptureSummary
+              invoiceId={invoice.id}
+              file={loadProfileFile}
+              worksSaturday={worksSaturday}
+              worksSunday={worksSunday}
+              monthlyMwh={monthlyMwh}
+            />
 
             <button
               type="button"
