@@ -48,13 +48,18 @@ export default function ConfirmAuctionPage() {
         return;
       }
 
-      const { data: siteData } = await supabase
-        .from("invoice_sites")
-        .select("*")
-        .eq("invoice_id", invoiceId);
+      let siteData: any[] = [];
+      try {
+        const res = await fetch(
+          `/api/invoice-sites?invoiceId=${encodeURIComponent(invoiceId)}`
+        );
+        if (res.ok) siteData = (await res.json()).sites || [];
+      } catch {
+        siteData = [];
+      }
 
       setInvoice(invoiceData);
-      setSites(siteData || []);
+      setSites(siteData);
     }
 
     loadData();
