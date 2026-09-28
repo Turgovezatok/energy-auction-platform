@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabase";
 import InfoTile from "@/components/confirm-auction/info-tile";
 import OptionCard from "@/components/confirm-auction/option-card";
 import LoadProfileUpload from "@/components/confirm-auction/load-profile-upload";
+import EmailVerification from "@/components/confirm-auction/email-verification";
+import CaptureSummary from "@/components/confirm-auction/capture-summary";
 
 const PERIODS = [3, 6, 12, 24, 36];
 
@@ -19,7 +21,9 @@ export default function ConfirmAuctionPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [months, setMonths] = useState(12);
-  const [contactName, setContactName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
   const [phone, setPhone] = useState("");
   const [deliveryStartDate, setDeliveryStartDate] = useState("");
   const [email, setEmail] = useState("");
@@ -123,10 +127,17 @@ export default function ConfirmAuctionPage() {
   }
 
   async function createAuction() {
-    if (!contactName || !phone || !deliveryStartDate) {
-      alert("Попълнете лице за контакт, телефон и начална дата.");
+    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !deliveryStartDate) {
+      alert("Попълнете име, фамилия, телефон и начална дата.");
       return;
     }
+
+    if (!emailVerified) {
+      alert("Потвърдете имейла си, преди да публикувате търга.");
+      return;
+    }
+
+    const contactName = `${firstName.trim()} ${lastName.trim()}`;
 
     if (!acceptsFixed && !acceptsDayAhead && !acceptsHybrid) {
       alert("Изберете поне един тип ценово предложение.");
@@ -293,17 +304,35 @@ export default function ConfirmAuctionPage() {
             <h2 className="mb-5 text-lg font-semibold dark:text-white-light">Контакт и доставка</h2>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
-                <label htmlFor="contactName">Лице за контакт</label>
+                <label htmlFor="firstName">
+                  Име <span className="text-danger">*</span>
+                </label>
                 <input
-                  id="contactName"
+                  id="firstName"
                   className="form-input"
-                  placeholder="Име и фамилия"
-                  value={contactName}
-                  onChange={(e) => setContactName(e.target.value)}
+                  autoComplete="given-name"
+                  required
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
                 />
               </div>
               <div>
-                <label htmlFor="phone">Телефон</label>
+                <label htmlFor="lastName">
+                  Фамилия <span className="text-danger">*</span>
+                </label>
+                <input
+                  id="lastName"
+                  className="form-input"
+                  autoComplete="family-name"
+                  required
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="phone">
+                  Телефон <span className="text-danger">*</span>
+                </label>
                 <input
                   id="phone"
                   type="tel"
@@ -314,17 +343,23 @@ export default function ConfirmAuctionPage() {
                 />
               </div>
               <div>
-                <label htmlFor="email">Имейл</label>
+                <label htmlFor="email">
+                  Имейл <span className="text-danger">*</span>
+                </label>
                 <input
                   id="email"
                   type="email"
-                  className="form-input"
+                  autoComplete="email"
+                  className="form-input disabled:cursor-not-allowed disabled:bg-[#eee] dark:disabled:bg-[#1b2e4b]"
                   value={email}
+                  disabled={emailVerified}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
               <div>
-                <label htmlFor="deliveryStart">Начална дата на доставка</label>
+                <label htmlFor="deliveryStart">
+                  Начална дата на доставка <span className="text-danger">*</span>
+                </label>
                 <input
                   id="deliveryStart"
                   type="date"
@@ -333,6 +368,9 @@ export default function ConfirmAuctionPage() {
                   value={deliveryStartDate}
                   onChange={(e) => setDeliveryStartDate(e.target.value)}
                 />
+              </div>
+              <div className="sm:col-span-2">
+                <EmailVerification email={email} onVerifiedChange={setEmailVerified} />
               </div>
               <div className="sm:col-span-2">
                 <LoadProfileUpload file={loadProfileFile} onChange={setLoadProfileFile} />
@@ -466,14 +504,28 @@ export default function ConfirmAuctionPage() {
               </div>
             </div>
 
+            <CaptureSummary
+              invoiceId={invoice.id}
+              file={loadProfileFile}
+              worksSaturday={worksSaturday}
+              worksSunday={worksSunday}
+              monthlyMwh={monthlyMwh}
+            />
+
             <button
               type="button"
               onClick={createAuction}
-              disabled={creating}
+              disabled={creating || !emailVerified}
+              aria-describedby={emailVerified ? undefined : "verify-hint"}
               className="btn btn-primary mt-5 w-full"
             >
               {creating ? "Създаваме търг..." : "Създай търг"}
             </button>
+            {!emailVerified && (
+              <p id="verify-hint" className="mt-2 text-center text-xs text-white-dark">
+                Бутонът се активира след потвърждение на имейла.
+              </p>
+            )}
           </div>
         </aside>
       </div>
