@@ -50,6 +50,47 @@ function extractInvoicePeriod(reportingPeriod: any): {
   };
 }
 
+const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
+const MAX_ATTEMPTS = 3;
+const MAX_RETRY_DELAY_MS = 8000;
+
+const BUSY_MESSAGE =
+  "Услугата за обработка на фактури е временно претоварена. Моля, опитайте отново след минута.";
+
+class UpstreamBusyError extends Error {}
+
+function retryDelayMs(response: Response, attempt: number): number {
+  const retryAfterSeconds = Number(response.headers.get("retry-after"));
+  const delay = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+    ? retryAfterSeconds * 1000
+    : 1500 * 2 ** attempt;
+  return Math.min(delay, MAX_RETRY_DELAY_MS);
+}
+
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  let response: Response | null = null;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    response = await fetch(url, init);
+    if (!RETRYABLE_STATUSES.has(response.status)) return response;
+    if (attempt < MAX_ATTEMPTS - 1) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs(response!, attempt)));
+    }
+  }
+
+  if (response && response.status === 429) throw new UpstreamBusyError(BUSY_MESSAGE);
+  return response!;
+}
+
+async function readJsonSafely(response: Response): Promise<{ json: any; text: string }> {
+  const text = await response.text();
+  try {
+    return { json: JSON.parse(text), text };
+  } catch {
+    return { json: null, text };
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const { fileUrl, invoiceId } = await req.json();
@@ -66,7 +107,7 @@ export async function POST(req: Request) {
       throw new Error("Missing PDF_SERVICE_URL environment variable");
     }
 
-    const pdfServiceResponse = await fetch(
+    const pdfServiceResponse = await fetchWithRetry(
       `${process.env.PDF_SERVICE_URL}/extract`,
       {
         method: "POST",
@@ -75,15 +116,18 @@ export async function POST(req: Request) {
       }
     );
 
-    const pdfResult = await pdfServiceResponse.json();
+    const { json: pdfResult, text: pdfRawText } = await readJsonSafely(pdfServiceResponse);
 
-    if (!pdfServiceResponse.ok || !pdfResult.text) {
-      throw new Error(pdfResult.detail || "PDF extraction failed");
+    if (!pdfServiceResponse.ok || !pdfResult?.text) {
+      throw new Error(
+        pdfResult?.detail ||
+          `PDF extraction failed (HTTP ${pdfServiceResponse.status}): ${pdfRawText.slice(0, 200)}`
+      );
     }
 
     const trimmedText = String(pdfResult.text).slice(0, 120000);
 
-    const openaiResponse = await fetch(
+    const openaiResponse = await fetchWithRetry(
       "https://api.openai.com/v1/chat/completions",
       {
         method: "POST",
@@ -336,12 +380,13 @@ Return exactly this JSON structure:
       loadProfile,
     });
   } catch (error: any) {
+    const busy = error instanceof UpstreamBusyError;
     return NextResponse.json(
       {
         success: false,
         error: error.message || "Extraction failed",
       },
-      { status: 500 }
+      { status: busy ? 429 : 500 }
     );
   }
 }
