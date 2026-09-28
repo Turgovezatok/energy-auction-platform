@@ -2,8 +2,14 @@
 
 import { useRef } from "react";
 
-export const LOAD_PROFILE_ACCEPT = ".xlsx,.xls,.csv,.pdf";
+const LOAD_PROFILE_EXTENSIONS = [".xlsx", ".xls", ".csv"];
+export const LOAD_PROFILE_ACCEPT = LOAD_PROFILE_EXTENSIONS.join(",");
 export const LOAD_PROFILE_MAX_BYTES = 10 * 1024 * 1024;
+
+function hasAllowedExtension(name: string) {
+  const lower = name.toLowerCase();
+  return LOAD_PROFILE_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
 
 type LoadProfileUploadProps = {
   file: File | null;
@@ -17,6 +23,11 @@ export default function LoadProfileUpload({
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleSelect(selected: File | null) {
+    if (selected && !hasAllowedExtension(selected.name)) {
+      alert("Приемаме само Excel (.xlsx, .xls) или CSV файл.");
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
     if (selected && selected.size > LOAD_PROFILE_MAX_BYTES) {
       alert("Файлът е по-голям от 10 MB.");
       if (inputRef.current) inputRef.current.value = "";
@@ -67,7 +78,7 @@ export default function LoadProfileUpload({
       )}
 
       <p className="mt-1.5 text-xs text-white-dark">
-        {"15-минутни или почасови данни от ЕРП / измервателната система (Excel, CSV или PDF, до 10 MB). С профил търговците дават по-точни оферти."}
+        {"15-минутни или почасови данни от ЕРП / измервателната система (Excel .xlsx/.xls или CSV, до 10 MB). С профил търговците дават по-точни оферти."}
       </p>
     </div>
   );
